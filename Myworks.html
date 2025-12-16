@@ -10,23 +10,42 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.0/ScrollTrigger.min.js"></script>
 
     <link rel="stylesheet" href="style.css" />
+    <style>
+      /* Myworks 전용: 스크롤이 생기도록 높이를 늘리고 안내 문구를 고정 */
+      body.myworks-page {
+        margin: 0;
+        min-height: 220vh;
+        background: linear-gradient(180deg, #fdfdfd 0%, #f3f7f8 45%, #eef4f6 100%);
+        font-family: "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .myworks-page .scroll-instruction {
+        position: sticky;
+        top: 20px;
+        margin: 0 auto;
+        padding: 14px 18px;
+        max-width: 520px;
+        color: #2f3b3c;
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid #d8e2e3;
+        border-radius: 12px;
+        box-shadow: 0 8px 26px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(3px);
+        text-align: center;
+        z-index: 5;
+      }
+
+      /* 여백을 만들어 실제 스크롤 길이를 확보 */
+      .myworks-page .scroll-spacer {
+        height: 120vh;
+      }
+    </style>
     
     <script src="Myworks.js" defer></script>
   </head>
-  <body>
-    <div id="loading-screen" class="loading-screen" style="display: block;">
-      <div class="loader">
-        <div class="item-1"><span></span></div>
-        <div class="item-2"><span></span></div>
-        <div class="item-3"><span></span></div>
-        <div class="item-4"><span></span></div>
-        <div class="item-5"><span></span></div>
-        <div class="item-6"><span></span></div>
-        <div class="item-7"><span></span></div>
-        <div class="item-8"><span></span></div>
-        </div>
-        
-             <div id="AboutmeContainer" style="display:none;">
-    </div>
+  <body class="myworks-page">
+    <p class="scroll-instruction">스크롤을 내려보세요. 두 가닥의 실이 화면을 따라 내려옵니다.</p>
+    <div class="scroll-spacer"></div>
+    <div class="scroll-spacer"></div>
   </body>
 </html>
