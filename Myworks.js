@@ -23,7 +23,10 @@ function draw() {
   background(250);
 
   // 스크롤을 실의 "목표 위치"로 반영 (예: 아래로 내려갈수록 y 증가)
-  const targetY = (window.scrollY || 0) * 0.4 + height * 0.25;
+  const scrollable = max(document.documentElement.scrollHeight - window.innerHeight, 1);
+  const scrollY = constrain(window.scrollY || 0, 0, scrollable);
+  const progress = scrollY / scrollable;
+  const targetY = lerp(height * 0.2, height * 0.8, progress);
   const targetX1 = width * 0.45;
   const targetX2 = width * 0.55;
 

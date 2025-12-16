@@ -5,47 +5,344 @@
     <title>Welcome to my portfolio</title>
 
     <script src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.0/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.0/ScrollTrigger.min.js"></script>
 
     <link rel="stylesheet" href="style.css" />
     <style>
-      /* Myworks 전용: 스크롤이 생기도록 높이를 늘리고 안내 문구를 고정 */
       body.myworks-page {
         margin: 0;
-        min-height: 220vh;
+        min-height: 420vh;
         background: linear-gradient(180deg, #fdfdfd 0%, #f3f7f8 45%, #eef4f6 100%);
         font-family: "Helvetica Neue", Arial, sans-serif;
+        color: #1f2a2b;
       }
 
-      .myworks-page .scroll-instruction {
+      .page-frame {
+        position: relative;
+        z-index: 2;
+      }
+
+      .scroll-instruction {
         position: sticky;
-        top: 20px;
-        margin: 0 auto;
-        padding: 14px 18px;
-        max-width: 520px;
+        top: 24px;
+        margin: 0 auto 48px;
+        padding: 16px 20px;
+        max-width: 560px;
         color: #2f3b3c;
-        background: rgba(255, 255, 255, 0.85);
+        background: rgba(255, 255, 255, 0.92);
         border: 1px solid #d8e2e3;
-        border-radius: 12px;
-        box-shadow: 0 8px 26px rgba(0, 0, 0, 0.08);
-        backdrop-filter: blur(3px);
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(4px);
         text-align: center;
-        z-index: 5;
       }
 
-      /* 여백을 만들어 실제 스크롤 길이를 확보 */
-      .myworks-page .scroll-spacer {
-        height: 120vh;
+      .section-block {
+        max-width: 960px;
+        margin: 120px auto;
+        padding: 48px 56px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 18px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+        border: 1px solid #e5eced;
+      }
+
+      .section-block h1,
+      .section-block h2 {
+        margin-top: 0;
+        color: #1b2223;
+      }
+
+      .section-block p {
+        line-height: 1.7;
+        color: #3c4a4c;
+      }
+
+      .yarn-drag-section {
+        margin: 0;
+        padding: 0;
+      }
+
+      .yarn-drag-section .section-title {
+        text-align: center;
+        margin-bottom: 14px;
+      }
+
+      .yarn-drag-section .section-copy {
+        text-align: center;
+        margin: 0 auto 28px;
+        max-width: 720px;
+        color: #3f4f51;
+      }
+
+      .yarn-band {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        left: 50%;
+        transform: translateX(-50%);
+        margin: 0;
+        border-radius: 0;
+        overflow: hidden;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(246, 251, 252, 0.95));
+        border: 1px solid #d6e4e5;
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.08);
+      }
+
+      .yarn-band__left,
+      .yarn-band__right {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        transition: width 0.12s ease;
+      }
+
+      .yarn-band__left {
+        left: 0;
+        background: linear-gradient(135deg, rgba(248, 154, 146, 0.85), rgba(248, 154, 146, 0.6));
+      }
+
+      .yarn-band__right {
+        right: 0;
+        background: linear-gradient(225deg, rgba(129, 217, 204, 0.9), rgba(129, 217, 204, 0.6));
+      }
+
+      .yarn-band__handle {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 16px;
+        cursor: ew-resize;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1f2a2b;
+        background: rgba(255, 255, 255, 0.88);
+        border-left: 1px solid #d6e4e5;
+        border-right: 1px solid #d6e4e5;
+        transition: background 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      .yarn-band__handle:hover {
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: inset 0 0 0 1px #b9d2d4;
+      }
+
+      .yarn-band--locked .yarn-band__handle,
+      .yarn-band--locked .yarn-band__left,
+      .yarn-band--locked .yarn-band__right {
+        transition: none;
+      }
+
+      .yarn-band--locked::after {
+        content: "맨 아래까지 스크롤하면 좌우로 움직일 수 있어요";
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 20, 20, 0.35);
+        color: #f7fbfb;
+        font-size: 18px;
+        letter-spacing: 0.2px;
+        pointer-events: none;
+      }
+
+      .handle-grip {
+        font-size: 13px;
+        letter-spacing: 1px;
+        opacity: 0.7;
+      }
+
+      .yarn-band__labels {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 18px;
+        font-weight: 600;
+        color: #1f2a2b;
+        pointer-events: none;
+      }
+
+      .yarn-band__labels .label-soft {
+        font-weight: 500;
+        color: #2f3b3c;
+        opacity: 0.82;
+      }
+
+      .drag-hint {
+        text-align: center;
+        margin-top: 14px;
+        color: #2f3b3c;
+        font-size: 14px;
+      }
+
+      .site-footer {
+        margin-top: 180px;
+        padding: 40px 24px 70px;
+        background: #0f1414;
+        color: #f4f7f7;
+        text-align: center;
+        letter-spacing: 0.2px;
+      }
+
+      .site-footer a {
+        color: #81d9cc;
+        text-decoration: none;
       }
     </style>
-    
     <script src="Myworks.js" defer></script>
   </head>
   <body class="myworks-page">
-    <p class="scroll-instruction">스크롤을 내려보세요. 두 가닥의 실이 화면을 따라 내려옵니다.</p>
-    <div class="scroll-spacer"></div>
-    <div class="scroll-spacer"></div>
+    <div class="page-frame">
+      <p class="scroll-instruction">스크롤을 천천히 내려서 실이 화면 끝까지 이어지는 모습을 확인해 주세요. 아래쪽에 드래그 가능한 구간이 있습니다.</p>
+
+      <section class="section-block">
+        <h1>Project Timeline</h1>
+        <p>여기는 전체 포트폴리오의 일부로, 스크롤을 따라가며 작업 흐름과 실의 움직임을 함께 볼 수 있습니다. 긴 페이지를 만들기 위해 여러 섹션을 구성했고, 각 섹션은 프로젝트의 주요 이정표를 설명합니다.</p>
+      </section>
+
+      <section class="section-block">
+        <h2>Explorations</h2>
+        <p>리서치, 사용자 인터뷰, 프로토타입 실험 등 다양한 탐색 과정을 기록합니다. 실이 화면을 가로지르며 이 섹션 위를 지나가도록 설계해, 움직임과 서사가 함께 보이도록 했습니다.</p>
+      </section>
+
+      <section class="section-block">
+        <h2>Build &amp; Iterate</h2>
+        <p>여러 반복을 거치며 완성도를 높이는 과정입니다. 긴 페이지 덕분에 상단에서 시작한 실이 아래까지 이어지고, 사용자가 스크롤을 계속하면 하단의 인터랙션 영역을 만나게 됩니다.</p>
+      </section>
+
+      <section class="yarn-drag-section" id="yarn-band-target">
+        <h2 class="section-title">Yarn Split Zone</h2>
+        <p class="section-copy">첫 번째 실의 색(#F89A92)이 왼쪽 1/3, 빈 공간이 가운데, 두 번째 실의 색(#81D9CC)이 오른쪽 1/3을 기본으로 차지합니다. 경계를 양옆으로 드래그해 폭을 조절해 보세요.</p>
+
+        <div class="yarn-band" aria-label="드래그 가능한 실 색상 영역">
+          <div class="yarn-band__left"></div>
+          <div class="yarn-band__right"></div>
+
+          <div class="yarn-band__handle yarn-band__handle--left" role="slider" aria-label="왼쪽 실 폭 조절" aria-valuemin="15" aria-valuemax="45" aria-valuenow="33">
+            <span class="handle-grip">|||</span>
+          </div>
+          <div class="yarn-band__handle yarn-band__handle--right" role="slider" aria-label="오른쪽 실 폭 조절" aria-valuemin="15" aria-valuemax="45" aria-valuenow="33">
+            <span class="handle-grip">|||</span>
+          </div>
+
+          <div class="yarn-band__labels">
+            <span class="label-soft">Left yarn · #F89A92</span>
+            <span class="label-soft">Right yarn · #81D9CC</span>
+          </div>
+        </div>
+
+        <p class="drag-hint">경계선을 좌우로 드래그하면 색상 폭이 변화합니다. 가운데 공간은 비워두었습니다.</p>
+      </section>
+    </div>
+
+    <footer class="site-footer">
+      <p>긴 페이지 끝까지 함께 해주셔서 감사합니다. 필요한 내용은 언제든 <a href="mailto:hello@example.com">hello@example.com</a> 으로 연락 주세요.</p>
+    </footer>
+
+    <script>
+      (function () {
+        const band = document.querySelector(".yarn-band");
+        const left = document.querySelector(".yarn-band__left");
+        const right = document.querySelector(".yarn-band__right");
+        const handleLeft = document.querySelector(".yarn-band__handle--left");
+        const handleRight = document.querySelector(".yarn-band__handle--right");
+
+        if (!band || !left || !right || !handleLeft || !handleRight) return;
+
+        let leftPct = 33;
+        let rightPct = 33;
+        const minPct = 0;
+        const minGap = 0;
+        const triggerEdge = 99;
+        let canSlideSideways = false;
+        let navigated = false;
+
+        let dragging = null;
+        let startX = 0;
+        let startPct = 0;
+
+        const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+
+        const render = () => {
+          left.style.width = leftPct + "%";
+          right.style.width = rightPct + "%";
+          handleLeft.style.left = leftPct + "%";
+          handleRight.style.left = 100 - rightPct + "%";
+          handleLeft.setAttribute("aria-valuenow", leftPct.toFixed(1));
+          handleRight.setAttribute("aria-valuenow", rightPct.toFixed(1));
+        };
+
+        const maybeNavigate = () => {
+          if (navigated) return;
+          if (leftPct >= triggerEdge && rightPct <= 1) {
+            navigated = true;
+            window.location.href = "Myworks2.html";
+          } else if (rightPct >= triggerEdge && leftPct <= 1) {
+            navigated = true;
+            window.location.href = "Myworks3.html";
+          }
+        };
+
+        const updateGate = () => {
+          const rect = band.getBoundingClientRect();
+          const tolerance = 40;
+          const topSnapped = rect.top >= -tolerance && rect.top <= tolerance;
+          const bottomSnapped = rect.bottom >= window.innerHeight - tolerance && rect.bottom <= window.innerHeight + tolerance;
+          canSlideSideways = topSnapped && bottomSnapped;
+          band.classList.toggle("yarn-band--locked", !canSlideSideways);
+        };
+
+        updateGate();
+        window.addEventListener("scroll", updateGate, { passive: true });
+        window.addEventListener("resize", updateGate);
+
+        const onPointerMove = (e) => {
+          if (!dragging || !canSlideSideways || navigated) return;
+          const bandWidth = band.getBoundingClientRect().width || 1;
+          const deltaPct = ((e.clientX - startX) / bandWidth) * 100;
+
+          if (dragging === "left") {
+            const next = clamp(startPct + deltaPct, minPct, 100 - rightPct - minGap);
+            leftPct = next;
+          } else if (dragging === "right") {
+            const next = clamp(startPct - deltaPct, minPct, 100 - leftPct - minGap);
+            rightPct = next;
+          }
+
+          render();
+          maybeNavigate();
+        };
+
+        const stopDrag = () => {
+          dragging = null;
+          startX = 0;
+          startPct = 0;
+          window.removeEventListener("pointermove", onPointerMove);
+          window.removeEventListener("pointerup", stopDrag);
+          window.removeEventListener("pointercancel", stopDrag);
+        };
+
+        const startDrag = (side, e) => {
+          if (!canSlideSideways || navigated) return;
+          dragging = side;
+          startX = e.clientX;
+          startPct = side === "left" ? leftPct : rightPct;
+          window.addEventListener("pointermove", onPointerMove);
+          window.addEventListener("pointerup", stopDrag);
+          window.addEventListener("pointercancel", stopDrag);
+        };
+
+        handleLeft.addEventListener("pointerdown", (e) => startDrag("left", e));
+        handleRight.addEventListener("pointerdown", (e) => startDrag("right", e));
+
+        render();
+      })();
+    </script>
   </body>
 </html>
