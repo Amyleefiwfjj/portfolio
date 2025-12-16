@@ -1,114 +1,89 @@
-let trailLayer;
-let yarnA, yarnB;
-let canvas;
+let scrollY = 0;
+let maxScroll; // 3 * height
+const cA = "#F89A92";
+const cB = "#81D9CC";
 
 function setup() {
-  canvas = createCanvas(windowWidth, windowHeight);
-  canvas.position(0, 0);
-  canvas.style("position", "fixed");
-  canvas.style("top", "0");
-  canvas.style("left", "0");
-  canvas.style("pointer-events", "none"); // 스크롤/클릭은 아래로 통과
-  canvas.style("z-index", "1");
-
-  trailLayer = createGraphics(windowWidth, windowHeight);
-  trailLayer.clear();
-
-  yarnA = new Yarn(color("#F89A92"));
-  yarnB = new Yarn(color("#81D9CC"));
-}
-
-function draw() {
-  // 배경은 매 프레임 지우고
-  background(250);
-
-  // 스크롤을 실의 "목표 위치"로 반영 (예: 아래로 내려갈수록 y 증가)
-  const scrollable = max(document.documentElement.scrollHeight - window.innerHeight, 1);
-  const scrollY = constrain(window.scrollY || 0, 0, scrollable);
-  const progress = scrollY / scrollable;
-  const targetY = lerp(height * 0.2, height * 0.8, progress);
-  const targetX1 = width * 0.45;
-  const targetX2 = width * 0.55;
-
-  yarnA.step(targetX1, targetY);
-  yarnB.step(targetX2, targetY);
-
-  // 누적 레이어에 그리기
-  yarnA.drawTo(trailLayer);
-  yarnB.drawTo(trailLayer);
-
-  // 누적 결과를 메인 캔버스에 올리기
-  image(trailLayer, 0, 0);
-
-  // (선택) 현재 실 위치만 살짝 강조해서 위에 그리기
-  yarnA.drawTo(this, true);
-  yarnB.drawTo(this, true);
-}
-
-class Yarn {
-  constructor(c) {
-    this.c = c;
-    this.N = 40;                // 세그먼트 수(실 길이 느낌)
-    this.pts = [];
-    for (let i = 0; i < this.N; i++) this.pts.push(createVector(width/2, height/4));
-    this.vel = createVector(0, 0);
-  }
-
-  step(tx, ty) {
-    // 머리점(lead)을 스프링/관성으로 이동
-    const head = this.pts[0];
-    const target = createVector(tx, ty);
-
-    const force = p5.Vector.sub(target, head).mult(0.08);
-    this.vel.add(force).mult(0.85);
-    head.add(this.vel);
-
-    // 나머지 점들은 앞 점을 스프링처럼 따라오게
-    for (let i = 1; i < this.N; i++) {
-      const prev = this.pts[i-1];
-      const cur = this.pts[i];
-      const dir = p5.Vector.sub(prev, cur);
-      dir.mult(0.35);
-      cur.add(dir);
-
-      // 약간의 노이즈로 “섬유 흔들림”
-      const t = frameCount * 0.02 + i * 0.15;
-      cur.x += (noise(t) - 0.5) * 0.6;
-      cur.y += (noise(t + 1000) - 0.5) * 0.6;
-    }
-  }
-
-  drawTo(g, highlight=false) {
-    g.push();
-    g.noFill();
-    g.stroke(this.c);
-    g.strokeWeight(highlight ? 4 : 2);
-
-    // 누적 무늬를 더 예쁘게: 낮은 알파로 여러 번 겹쳐 그리기
-    if (!highlight) g.stroke(this.c.levels[0], this.c.levels[1], this.c.levels[2], 18);
-
-    g.beginShape();
-    for (let p of this.pts) g.curveVertex(p.x, p.y);
-    g.endShape();
-
-    // “실 결” 느낌: 미세 오프셋으로 한 번 더
-    if (!highlight) {
-      g.stroke(this.c.levels[0], this.c.levels[1], this.c.levels[2], 10);
-      g.beginShape();
-      for (let i = 0; i < this.pts.length; i++) {
-        const p = this.pts[i];
-        g.curveVertex(p.x + sin(i*0.9)*0.8, p.y + cos(i*0.9)*0.8);
-      }
-      g.endShape();
-    }
-
-    g.pop();
-  }
+  createCanvas(windowWidth, windowHeight);
+  maxScroll = 3 * height;
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  const old = trailLayer;
-  trailLayer = createGraphics(windowWidth, windowHeight);
-  trailLayer.image(old, 0, 0); // 누적 보존(간단 처리)
+  maxScroll = 3 * height;
+}
+
+function mouseWheel(e) {
+  // 휠 감도는 프로젝트에 맞게 조정
+  scrollY += e.delta * 0.8;
+  scrollY = constrain(scrollY, 0, maxScroll);
+  return false;
+}
+
+function draw() {
+  background(245);
+
+  const t = constrain(scrollY / maxScroll, 0, 1);
+
+  // Phase A: 페인트 이동/생성
+  drawPaintTravel(t);
+
+  // Phase B: 아래 페이지(네모 레이아웃) + 페인트 정착
+  drawLandingBlocks(t);
+}
+
+function drawPaintTravel(t) {
+  // 시작점: 화면 상단 중앙
+  const startX = width * 0.5;
+  const startY = height * 0.25;
+
+  // 페인트가 아래로 “도달”하는 가상의 y
+  const travelY = lerp(startY, height * 1.2, t);
+
+  noStroke();
+
+  // 단순화: 두 페인트가 서로 다른 방향으로 약간 벌어지며 내려감
+  fill(cA);
+  ellipse(lerp(startX, width * 0.2, t), travelY, 24 + 40 * (1 - t));
+
+  fill(cB);
+  ellipse(lerp(startX, width * 0.8, t), travelY, 24 + 40 * (1 - t));
+
+  // 시작점(한 점) 강조
+  fill(30);
+  ellipse(startX, startY, 6, 6);
+}
+
+function drawLandingBlocks(t) {
+  // 아래 페이지는 t가 어느 정도 커지면 나타나야 자연스럽다.
+  const appear = smoothstep(0.7, 1.0, t); // 0.7~1 사이에서 서서히 등장
+
+  if (appear <= 0) return;
+
+  const blockW = width / 3;
+  const leftX = 0;
+  const rightX = width - blockW;
+
+  // 네모 “채움 진행률”: t가 0.7->1로 갈 때 0->1
+  const p = appear;
+
+  // 네모 배경(윤곽)
+  noFill();
+  stroke(0, 40);
+  rect(leftX, 0, blockW, height);
+  rect(rightX, 0, blockW, height);
+
+  noStroke();
+
+  // 채워지는 면적(위에서 아래로)
+  fill(cA);
+  rect(leftX, 0, blockW, height * p);
+
+  fill(cB);
+  rect(rightX, 0, blockW, height * p);
+}
+
+function smoothstep(a, b, x) {
+  const t = constrain((x - a) / (b - a), 0, 1);
+  return t * t * (3 - 2 * t);
 }

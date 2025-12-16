@@ -96,37 +96,40 @@
         top: 0;
         bottom: 0;
         transition: width 0.12s ease;
+        filter: blur(70px);
+        mix-blend-mode: screen;
+        opacity: 0.9;
       }
 
       .yarn-band__left {
         left: 0;
-        background: linear-gradient(135deg, rgba(248, 154, 146, 0.85), rgba(248, 154, 146, 0.6));
+        background: radial-gradient(120% 100% at 0% 50%, rgba(248, 154, 146, 0.82) 0%, rgba(248, 154, 146, 0.3) 60%, transparent 100%);
       }
 
       .yarn-band__right {
         right: 0;
-        background: linear-gradient(225deg, rgba(129, 217, 204, 0.9), rgba(129, 217, 204, 0.6));
+        background: radial-gradient(120% 100% at 100% 50%, rgba(129, 217, 204, 0.85) 0%, rgba(129, 217, 204, 0.3) 60%, transparent 100%);
       }
 
       .yarn-band__handle {
         position: absolute;
         top: 0;
         bottom: 0;
-        width: 16px;
+        width: 24px;
         cursor: ew-resize;
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #1f2a2b;
-        background: rgba(255, 255, 255, 0.88);
-        border-left: 1px solid #d6e4e5;
-        border-right: 1px solid #d6e4e5;
-        transition: background 0.15s ease, box-shadow 0.15s ease;
+        color: rgba(255, 255, 255, 0.45);
+        background: transparent;
+        border: none;
+        transition: background 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+        opacity: 0.35;
       }
 
       .yarn-band__handle:hover {
-        background: rgba(255, 255, 255, 0.98);
-        box-shadow: inset 0 0 0 1px #b9d2d4;
+        opacity: 0.6;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
       }
 
       .yarn-band--locked .yarn-band__handle,
@@ -290,11 +293,10 @@
         };
 
         const updateGate = () => {
-          const rect = band.getBoundingClientRect();
-          const tolerance = 40;
-          const topSnapped = rect.top >= -tolerance && rect.top <= tolerance;
-          const bottomSnapped = rect.bottom >= window.innerHeight - tolerance && rect.bottom <= window.innerHeight + tolerance;
-          canSlideSideways = topSnapped && bottomSnapped;
+          const docHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+          const scrollBottom = (window.scrollY || 0) + window.innerHeight;
+          const progress = scrollBottom / Math.max(docHeight, 1);
+          canSlideSideways = progress >= 0.95;
           band.classList.toggle("yarn-band--locked", !canSlideSideways);
         };
 
