@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Interactive Footer (p5.js)</title>
+
+    <style>
+        :root {
+            --hero-height: 40vh;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            height: 100%;
+            min-height: 100vh;
+            box-sizing: border-box;
+            font-family: 'Noto Sans KR', system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            overflow-x: hidden;
+        }
+
+        /* 페이지 전역(메뉴 포함) 영역 */
+        .footer {
+            position: relative;
+            width: 100%;
+            height: var(--hero-height);
+            /* 상단 히어로(텍스트) 영역 */
+            background: #000;
+            overflow: hidden;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* p5 캔버스를 푸터에 꽉 채움 */
+        .footer canvas {
+            display: block;
+        }
+
+        /* 연락처 패널 */
+        .contact-panel {
+            background: #fff;
+            color: #0f172a;
+            min-height: 15vh;
+            padding: 48px clamp(5px, 5vw, 64px);
+            display: none;
+            align-content: center;
+            gap: 16px;
+        }
+
+        .contact-panel.show {
+            display: grid;
+        }
+
+        .contact-items {
+            display: grid;
+            gap: 10px;
+            font-size: clamp(15px, 2vw, 18px);
+        }
+
+        .contact-items a {
+            color: #0f172a;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+            display: block;
+            padding: 14px 10px;
+            /* 기존 대비 약 2배 높이 */
+        }
+
+        .contact-items a:hover {
+            border-color: rgba(15, 23, 42, 0.4);
+            background: #000;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <footer class="footer" id="footer"></footer>
+    <section class="contact-panel" aria-label="연락처">
+        <div class="contact-items">
+            <a href="mailto:youremail@example.com">youremail@example.com</a>
+            <a href="https://github.com/Amyleefiwfjj" target="_blank" rel="noopener">github.com/Amyleefiwfjj</a>
+            <a href="https://blog.naver.com/da04eun" target="_blank" rel="noopener">blog.naver.com/da04eun</a>
+            <a href="tel:+821012345678">+82 10-1234-5678</a>
+        </div>
+    </section>
+
+    <!-- p5.js -->
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+    <script>
+        let font, points = [], bounds;
+        let lastTx = 0, lastTy = 0;
+        let contactOpen = false;
+        let contactPanel = null;
+
+        const WORD = "contact me";
+        const FONT_SIZE = 120;
+        const SAMPLE = 0.28;
+        const DOT_SIZE = 4;
+
+        let jitter = 1.0;
+        let jitterTarget = 1.0;
+
+        let heroH = 0;            // 상단 히어로 높이
+        const MAX_AMP = 20;       // 지지직 세기
+
+        function preload() {
+            // 폰트는 "변경"하지 않고 1개로 고정
+            font = loadFont("./asset/B612Mono-Bold.ttf");
+        }
+
+        function setup() {
+            heroH = Math.max(windowHeight * 0.5, 360);
+            document.documentElement.style.setProperty('--hero-height', `${heroH}px`);
+            // 캔버스를 히어로 높이만큼 생성
+            const c = createCanvas(windowWidth, heroH);
+
+            // 캔버스를 footer DOM에 붙이기
+            c.parent("footer");
+
+            // 연락처 패널 DOM 캐시
+            contactPanel = document.querySelector('.contact-panel');
+
+            initTextGeometry();
+            noStroke();
+        }
+
+        function initTextGeometry() {
+            points = font.textToPoints(WORD, 0, 0, FONT_SIZE, {
+                sampleFactor: SAMPLE,
+                simplifyThreshold: 0
+            });
+            bounds = font.textBounds(WORD, 0, 0, FONT_SIZE);
+        }
+
+        function draw() {
+            background(0);
+
+            // 텍스트를 푸터 중앙에 배치
+            const tx = (width - bounds.w) / 2 - bounds.x;
+            const ty = (height + bounds.h) / 2 - bounds.y;
+            lastTx = tx;
+            lastTy = ty;
+
+            // hover 판정(텍스트 bounds 기준)
+            const hover =
+                mouseX >= tx + bounds.x && mouseX <= tx + bounds.x + bounds.w &&
+                mouseY >= ty + bounds.y && mouseY <= ty + bounds.y + bounds.h;
+
+            jitterTarget = hover ? 0.0 : 1.0;
+            jitter = lerp(jitter, jitterTarget, 0.12);
+
+            const amp = MAX_AMP * jitter;
+            const t = frameCount * 0.02;
+
+            fill(255, 210);
+
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+
+                // noise 기반 지터: 지속적인 “지지직” 느낌
+                const nx = noise(i * 0.07, t) * 2 - 1;         // -1 ~ 1
+                const ny = noise(i * 0.07 + 1000, t) * 2 - 1;
+
+                const x = tx + p.x + nx * amp;
+                const y = ty + p.y + ny * amp;
+
+                ellipse(x, y, DOT_SIZE, DOT_SIZE);
+            }
+        }
+
+        function windowResized() {
+            heroH = Math.max(windowHeight * 0.5, 360);
+            document.documentElement.style.setProperty('--hero-height', `${heroH}px`);
+            resizeCanvas(windowWidth, heroH);
+            initTextGeometry(); // 리사이즈 시 포인트 재계산(정렬 유지)
+        }
+
+        function mousePressed() {
+            // 텍스트 영역 클릭 시 연락처 패널 토글
+            const withinText =
+                mouseX >= lastTx + bounds.x && mouseX <= lastTx + bounds.x + bounds.w &&
+                mouseY >= lastTy + bounds.y && mouseY <= lastTy + bounds.y + bounds.h;
+
+            if (!withinText || !contactPanel) return;
+
+            contactOpen = !contactOpen;
+            contactPanel.classList.toggle('show', contactOpen);
+        }
+    </script>
+</body>
+
+</html>

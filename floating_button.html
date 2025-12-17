@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Floating Snap Menu Button</title>
+
+    <style>
+        /* 버튼 */
+        .floating-menu {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            border: 0;
+            cursor: grab;
+            touch-action: none;
+            /* 모바일 드래그 필수 */
+            z-index: 999999;
+            background: rgba(20, 20, 20, 0.75);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .floating-menu:active {
+            cursor: grabbing;
+        }
+
+        /* 햄버거 아이콘 */
+        .floating-menu .bar {
+            width: 18px;
+            height: 2px;
+            background: #fff;
+            border-radius: 2px;
+            display: block;
+            margin: 2.5px 0;
+        }
+
+        .dna-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 999997;
+            /* floating 버튼(999999) 아래에 두고 싶으면 조절 */
+            display: none;
+            pointer-events: auto;
+        }
+
+        .dna-overlay.on {
+            display: block;
+        }
+
+        .dna-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .cell-panel {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) scale(0.92);
+            width: min(520px, calc(100vw - 40px));
+            padding: 18px 18px 16px;
+            border-radius: 22px;
+            /* 둥근 네모(“셀”) */
+            background: rgba(15, 15, 15, 0.78);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+            color: #fff;
+
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 220ms ease, transform 220ms ease;
+        }
+
+        .cell-panel.on {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        .cell-title {
+            font-size: 14px;
+            opacity: 0.85;
+            margin-bottom: 10px;
+        }
+
+        .cell-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .cell-btn {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            height: 44px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+            text-decoration: none;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .cell-btn.secondary {
+            background: rgba(255, 255, 255, 0.06);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 버튼 -->
+    <button id="floatingMenuBtn" class="floating-menu" aria-label="메뉴">
+        <span aria-hidden="true">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </span>
+    </button>
+
+    <!-- (옵션) 메뉴 패널 -->
+    <script>
+        (function () {
+            const btn = document.getElementById('floatingMenuBtn');
+
+            // ===== 설정 =====
+            const MARGIN = 10;                 // 화면 가장자리 여백
+            const CORNER_SNAP_RADIUS = 120;    // 이 거리 이내면 "코너 우선 스냅" 강제
+            const CORNER_BIAS = 24;            // 코너 우선 편향(엣지보다 이만큼 불리해도 코너 선택)
+            const USE_STORAGE = true;          // 위치 저장(페이지 이동 후 유지)
+            const STORAGE_KEY = 'floating_menu_pos_v1';
+
+            // 상태
+            let dragging = false;
+            let pointerId = null;
+            let startX = 0, startY = 0;       // 포인터 시작점(클릭/드래그 판별용)
+            let btnStartLeft = 0, btnStartTop = 0;
+            let moved = false;
+
+            // 초기 위치 세팅 (기본: 오른쪽 아래)
+            function defaultPosition() {
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                const rect = btn.getBoundingClientRect();
+                const left = vw - rect.width - MARGIN;
+                const top = vh - rect.height - MARGIN - 40; // 약간 위로
+                setPos(clamp(left, MARGIN, vw - rect.width - MARGIN),
+                    clamp(top, MARGIN, vh - rect.height - MARGIN), false);
+                snapToBest(true);
+            }
+
+            // 저장 위치 로드
+            function loadPosition() {
+                if (!USE_STORAGE) return false;
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (!raw) return false;
+                    const { left, top } = JSON.parse(raw);
+                    if (typeof left !== 'number' || typeof top !== 'number') return false;
+                    setPos(left, top, false);
+                    clampIntoViewport();
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+
+            function savePosition() {
+                if (!USE_STORAGE) return;
+                const left = parseFloat(btn.style.left) || 0;
+                const top = parseFloat(btn.style.top) || 0;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ left, top }));
+            }
+
+            // 위치 적용
+            function setPos(left, top, withTransition = false) {
+                btn.style.transition = withTransition ? 'left 180ms ease, top 180ms ease' : 'none';
+                btn.style.left = `${left}px`;
+                btn.style.top = `${top}px`;
+            }
+
+            function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+            function clampIntoViewport() {
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                const rect = btn.getBoundingClientRect();
+                const left = clamp(parseFloat(btn.style.left) || rect.left, MARGIN, vw - rect.width - MARGIN);
+                const top = clamp(parseFloat(btn.style.top) || rect.top, MARGIN, vh - rect.height - MARGIN);
+                setPos(left, top, false);
+            }
+
+            // ===== 스냅 로직: "코너 우선" =====
+            function snapToBest(immediate = false) {
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                const rect = btn.getBoundingClientRect();
+
+                const left = parseFloat(btn.style.left) || rect.left;
+                const top = parseFloat(btn.style.top) || rect.top;
+
+                const w = rect.width;
+                const h = rect.height;
+
+                // 현재 버튼 "중심" 좌표
+                const cx = left + w / 2;
+                const cy = top + h / 2;
+
+                // 코너 좌표(버튼 좌상단 기준으로 붙일 목표)
+                const corners = [
+                    { name: 'tl', x: MARGIN, y: MARGIN },
+                    { name: 'tr', x: vw - w - MARGIN, y: MARGIN },
+                    { name: 'bl', x: MARGIN, y: vh - h - MARGIN },
+                    { name: 'br', x: vw - w - MARGIN, y: vh - h - MARGIN },
+                ];
+
+                // 엣지 목표(현재 y/x 유지한 채 가장자리로)
+                const edges = [
+                    { name: 'left', x: MARGIN, y: clamp(top, MARGIN, vh - h - MARGIN) },
+                    { name: 'right', x: vw - w - MARGIN, y: clamp(top, MARGIN, vh - h - MARGIN) },
+                    { name: 'top', x: clamp(left, MARGIN, vw - w - MARGIN), y: MARGIN },
+                    { name: 'bottom', x: clamp(left, MARGIN, vw - w - MARGIN), y: vh - h - MARGIN },
+                ];
+
+                const dist2 = (ax, ay, bx, by) => {
+                    const dx = ax - bx, dy = ay - by;
+                    return dx * dx + dy * dy;
+                };
+
+                // 코너 거리(버튼 중심 -> 코너의 버튼 중심 위치)
+                let bestCorner = null;
+                for (const c of corners) {
+                    const ccx = c.x + w / 2, ccy = c.y + h / 2;
+                    const d2 = dist2(cx, cy, ccx, ccy);
+                    if (!bestCorner || d2 < bestCorner.d2) bestCorner = { ...c, d2 };
+                }
+
+                // 엣지 거리(버튼 중심 -> 엣지 목표의 버튼 중심)
+                let bestEdge = null;
+                for (const e of edges) {
+                    const ecx = e.x + w / 2, ecy = e.y + h / 2;
+                    const d2 = dist2(cx, cy, ecx, ecy);
+                    if (!bestEdge || d2 < bestEdge.d2) bestEdge = { ...e, d2 };
+                }
+
+                const cornerDist = Math.sqrt(bestCorner.d2);
+                const edgeDist = Math.sqrt(bestEdge.d2);
+
+                // 코너 우선 규칙:
+                // 1) 코너가 CORNER_SNAP_RADIUS 이내면 무조건 코너
+                // 2) 아니면 "코너가 엣지보다 CORNER_BIAS 만큼 불리해도 코너" (우선권)
+                const chooseCorner =
+                    (cornerDist <= CORNER_SNAP_RADIUS) ||
+                    (cornerDist <= edgeDist + CORNER_BIAS);
+
+                const target = chooseCorner ? bestCorner : bestEdge;
+
+                const withTransition = !immediate;
+                setPos(target.x, target.y, withTransition);
+                // transition 끝난 뒤 저장
+                if (!immediate) setTimeout(savePosition, 220);
+                else savePosition();
+            }
+
+            // ===== 포인터 이벤트로 드래그 구현 =====
+            btn.addEventListener('pointerdown', (e) => {
+                dragging = true;
+                moved = false;
+                btn.dataset.wasDragged = 'false';
+                pointerId = e.pointerId;
+                btn.setPointerCapture(pointerId);
+
+                const rect = btn.getBoundingClientRect();
+                startX = e.clientX;
+                startY = e.clientY;
+                btnStartLeft = rect.left;
+                btnStartTop = rect.top;
+            });
+
+            btn.addEventListener('pointermove', (e) => {
+                if (!dragging || e.pointerId !== pointerId) return;
+
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+                if (moved) btn.dataset.wasDragged = 'true';
+
+                const rect = btn.getBoundingClientRect();
+                const w = rect.width, h = rect.height;
+
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+
+                const nextLeft = clamp(btnStartLeft + dx, MARGIN, vw - w - MARGIN);
+                const nextTop = clamp(btnStartTop + dy, MARGIN, vh - h - MARGIN);
+
+                setPos(nextLeft, nextTop, false);
+            });
+
+            btn.addEventListener('pointerup', (e) => {
+                if (!dragging || e.pointerId !== pointerId) return;
+                dragging = false;
+
+                // 스냅 적용 (코너 우선)
+                snapToBest(false);
+
+                // 드래그 종료 직후의 click 방지 플래그 리셋
+                setTimeout(() => {
+                    moved = false;
+                    btn.dataset.wasDragged = 'false';
+                }, 0);
+            });
+
+            btn.addEventListener('pointercancel', () => {
+                dragging = false;
+                snapToBest(false);
+            });
+
+            // 리사이즈 시 화면 안에 클램프 + 스냅 재적용
+            window.addEventListener('resize', () => {
+                clampIntoViewport();
+                snapToBest(true);
+            });
+
+            // 초기화
+            if (!loadPosition()) defaultPosition();
+            else snapToBest(true);
+        })();
+
+        // ===== DNA Menu Animation =====
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('floatingMenuBtn');
+            const overlay = document.getElementById('dnaOverlay');
+            const svg = document.getElementById('dnaSvg');
+            const strandA = document.getElementById('strandA');
+            const strandB = document.getElementById('strandB');
+            const rungsG = document.getElementById('rungs');
+            const cellPanel = document.getElementById('cellPanel');
+            const closeCell = document.getElementById('closeCell');
+
+            // 애니메이션 상태
+            let isOpen = false;
+            let animReq = null;
+            let t0 = 0;
+
+            // 튜닝 파라미터
+            const DURATION = 300;            // DNA 퍼짐 시간(ms)
+            const RUNG_COUNT = 18;           // 사다리 개수
+            const START_OFFSET_Y1 = -6;      // “첫번째 줄” 출발점(버튼 중심 기준)
+            const START_OFFSET_Y3 = +6;      // “세번째 줄” 출발점(버튼 중심 기준)
+            const FADE_BG = true;            // 배경을 살짝 어둡게 할지(원하면 overlay에 배경 추가)
+
+            // 배경 페이드가 필요하면 overlay에 배경색을 줘도 됨
+            if (FADE_BG) {
+                overlay.style.background = 'rgba(0,0,0,0.12)';
+            }
+
+            function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+            function easeInOutCubic(x) {
+                return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+            }
+
+            function getBtnAnchorsInViewport() {
+                const r = btn.getBoundingClientRect();
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+
+                // 햄버거 1번째 줄, 3번째 줄의 y 위치를 근사
+                const a = { x: cx, y: cy + START_OFFSET_Y1 };
+                const b = { x: cx, y: cy + START_OFFSET_Y3 };
+                return { a, b };
+            }
+
+            // viewport(px) -> svg viewBox(0..1000)
+            function vpToSvg(pt) {
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                return {
+                    x: (pt.x / vw) * 1000,
+                    y: (pt.y / vh) * 1000
+                };
+            }
+
+            function buildHelixPaths(progress) {
+                // progress: 0..1
+                const p = easeInOutCubic(progress);
+
+                // 시작점(버튼 줄)과 종료점(화면 중앙)
+                const { a, b } = getBtnAnchorsInViewport();
+                const A0 = vpToSvg(a);
+                const B0 = vpToSvg(b);
+
+                const C = { x: 500, y: 500 }; // 중앙
+                // 진행에 따라 중앙으로 “끌려가며” 길이가 늘어나는 느낌
+                const x0 = A0.x;
+                const y0 = (A0.y + B0.y) / 2;
+
+                // 시작: 버튼 크기와 비슷하게, 끝: 중앙까지 크게 확장
+                const length = lerp(40, 720, p);      // helix 길이
+                const turns = lerp(0.8, 3.6, p);      // 꼬임 횟수
+                const amp = lerp(4, 90, p);           // 좌우 진폭
+                const width = lerp(3, 48, p);         // 두 가닥 간격
+
+                // helix 진행 방향 벡터: 버튼->중앙 방향으로 맞추기
+                const dx = C.x - x0;
+                const dy = C.y - y0;
+                const ang = Math.atan2(dy, dx);
+
+                // 로컬 좌표계에서 helix 만든 다음, 회전/이동
+                const N = 90; // 샘플 수
+                let dA = "";
+                let dB = "";
+
+                // rung 생성
+                rungsG.innerHTML = "";
+                const rungCount = Math.round(lerp(3, RUNG_COUNT, p));
+
+                function localToWorld(x, y) {
+                    const cos = Math.cos(ang);
+                    const sin = Math.sin(ang);
+                    return {
+                        x: x0 + (x * cos - y * sin),
+                        y: y0 + (x * sin + y * cos)
+                    };
+                }
+
+                for (let i = 0; i < N; i++) {
+                    const u = i / (N - 1);           // 0..1
+                    const x = u * length;            // 진행축
+                    const phase = u * Math.PI * 2 * turns;
+
+                    // 두 가닥: sin 위상 차 180도
+                    const yA = Math.sin(phase) * amp;
+                    const yB = Math.sin(phase + Math.PI) * amp;
+
+                    const pA = localToWorld(x, yA);
+                    const pB = localToWorld(x, yB);
+
+                    dA += (i === 0 ? `M ${pA.x.toFixed(2)} ${pA.y.toFixed(2)}` : ` L ${pA.x.toFixed(2)} ${pA.y.toFixed(2)}`);
+                    dB += (i === 0 ? `M ${pB.x.toFixed(2)} ${pB.y.toFixed(2)}` : ` L ${pB.x.toFixed(2)} ${pB.y.toFixed(2)}`);
+
+                    // 사다리(일정 간격으로 선 추가)
+                    if (i > 0 && i < N - 1) {
+                        const rungEvery = Math.floor((N - 2) / rungCount);
+                        if (rungEvery > 0 && (i % rungEvery === 0)) {
+                            const rung = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                            rung.setAttribute("x1", pA.x.toFixed(2));
+                            rung.setAttribute("y1", pA.y.toFixed(2));
+                            rung.setAttribute("x2", pB.x.toFixed(2));
+                            rung.setAttribute("y2", pB.y.toFixed(2));
+                            // “중앙 갈수록 강조” 느낌을 위해 진행에 따라 alpha를 조금 조절
+                            rung.style.opacity = String(lerp(0.0, 0.95, u) * lerp(0.55, 1.0, p));
+                            rungsG.appendChild(rung);
+                        }
+                    }
+                }
+
+                strandA.setAttribute("d", dA);
+                strandB.setAttribute("d", dB);
+
+                // stroke-width도 커지게
+                const swA = lerp(3.0, 5.2, p);
+                const swB = lerp(3.0, 4.6, p);
+                strandA.setAttribute("stroke-width", swA.toFixed(2));
+                strandB.setAttribute("stroke-width", swB.toFixed(2));
+            }
+
+            function lerp(a, b, t) { return a + (b - a) * t; }
+
+            function openMenu() {
+                if (isOpen) return;
+                isOpen = true;
+
+                // 기존 드래그/패널 UI가 있으면 여기서 닫기
+                overlay.classList.add('on');
+                overlay.setAttribute('aria-hidden', 'false');
+
+                // DNA 애니메이션 시작
+                cancelAnimationFrame(animReq);
+                t0 = performance.now();
+
+                const tick = (now) => {
+                    const elapsed = now - t0;
+                    const raw = Math.min(1, elapsed / DURATION);
+                    const p = easeOutCubic(raw);
+
+                    buildHelixPaths(p);
+
+                    if (raw < 1) {
+                        animReq = requestAnimationFrame(tick);
+                    } else {
+                        // 최종: 중앙 셀 패널 표시
+                        cellPanel.classList.add('on');
+                    }
+                };
+                animReq = requestAnimationFrame(tick);
+            }
+
+            function closeMenu() {
+                if (!isOpen) return;
+                isOpen = false;
+
+                cellPanel.classList.remove('on');
+
+                // 간단 닫기: DNA는 페이드아웃 후 종료 (원하면 역방향 수축도 가능)
+                strandA.style.transition = 'opacity 180ms ease';
+                strandB.style.transition = 'opacity 180ms ease';
+                rungsG.style.transition = 'opacity 180ms ease';
+                strandA.style.opacity = '0';
+                strandB.style.opacity = '0';
+                rungsG.style.opacity = '0';
+
+                setTimeout(() => {
+                    cancelAnimationFrame(animReq);
+
+                    // 초기화
+                    strandA.style.transition = '';
+                    strandB.style.transition = '';
+                    rungsG.style.transition = '';
+                    strandA.style.opacity = '';
+                    strandB.style.opacity = '';
+                    rungsG.style.opacity = '';
+                    rungsG.innerHTML = '';
+                    strandA.setAttribute('d', '');
+                    strandB.setAttribute('d', '');
+
+                    overlay.classList.remove('on');
+                    overlay.setAttribute('aria-hidden', 'true');
+                }, 200);
+            }
+
+            // 버튼 클릭 → DNA 오픈 (기존 click 로직이 있다면 “토글”로 바꾸는게 안전)
+            btn.addEventListener('click', (e) => {
+                // 드래그 직후 click 방지 플래그를 이미 쓰고 있다면 그 로직 유지 필요
+                // 여기서는 단순 토글로 처리
+                if (btn.dataset.wasDragged === 'true') {
+                    btn.dataset.wasDragged = 'false';
+                    return;
+                }
+                if (!isOpen) openMenu();
+                else closeMenu();
+            });
+
+            closeCell.addEventListener('click', closeMenu);
+
+            // 오버레이 바깥 클릭으로 닫기(선호에 따라)
+            overlay.addEventListener('pointerdown', (e) => {
+                // 셀 패널 내부 클릭은 닫지 않음
+                if (e.target.closest && e.target.closest('#cellPanel')) return;
+                // SVG 클릭은 닫기 허용
+                closeMenu();
+            });
+
+            // 리사이즈 시 열려 있으면 재그리기
+            window.addEventListener('resize', () => {
+                if (!isOpen) return;
+                buildHelixPaths(1);
+            });
+        });
+
+    </script>
+
+    <!-- DNA Overlay -->
+    <div id="dnaOverlay" class="dna-overlay" aria-hidden="true">
+        <svg id="dnaSvg" class="dna-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+            <!-- 두 가닥 -->
+            <path id="strandA" d="" fill="none" stroke="rgba(255,255,255,0.92)" stroke-width="4"
+                stroke-linecap="round" />
+            <path id="strandB" d="" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="4"
+                stroke-linecap="round" />
+
+            <!-- 베이스 페어(사다리) -->
+            <g id="rungs" stroke="rgba(255,255,255,0.35)" stroke-width="3" stroke-linecap="round"></g>
+        </svg>
+
+        <!-- 중앙 셀 패널 -->
+        <div id="cellPanel" class="cell-panel" role="dialog" aria-modal="true" aria-label="사이트 섹션 메뉴">
+            <div class="cell-title">Sections</div>
+            <div class="cell-grid">
+                <a class="cell-btn" href="#section1">Section 1</a>
+                <a class="cell-btn" href="#section2">Section 2</a>
+                <a class="cell-btn" href="#section3">Section 3</a>
+                <button class="cell-btn secondary" id="closeCell">Close</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>
