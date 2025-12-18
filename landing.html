@@ -50,11 +50,12 @@
       background: rgba(11, 11, 11, 0.72);
       z-index: 20;
       backdrop-filter: blur(6px);
+      transition: opacity 0.4s ease;
     }
     .loader {
-      width: 80px;
-      height: 40px;
-      border-radius: 100px 100px 0 0;
+      width: 400px;
+      height: 200px;
+      border-radius: 500px 500px 0 0;
       position: relative;
       overflow: hidden;
     }
@@ -63,9 +64,9 @@
       position: absolute;
       inset: 0 0 -100%;
       background:
-        radial-gradient(farthest-side, #ffd738 80%, #0000) left 70% top 20%/15px 15px,
-        radial-gradient(farthest-side, #020308 92%, #0000) left 65% bottom 19%/12px 12px,
-        radial-gradient(farthest-side, #ecfefe 92%, #0000) left 70% bottom 20%/15px 15px,
+        radial-gradient(farthest-side, #ffd738 80%, #0000) left 70% top 20%/75px 75px,
+        radial-gradient(farthest-side, #020308 92%, #0000) left 65% bottom 19%/60px 60px,
+        radial-gradient(farthest-side, #ecfefe 92%, #0000) left 70% bottom 20%/75px 75px,
         linear-gradient(#9eddfe 50%, #020308 0);
       background-repeat: no-repeat;
       animation: l5 2s infinite;
@@ -120,6 +121,7 @@
     const MIN_DRIPS = 3;        // ?? ?? ?? ??
     const DRIP_PICK_Y = 26;     // 하단 윤곽에서 앵커를 잡는 두께(px)
     const DRIP_FIXED_RATIO = 0.38; // 상단 고정 길이 비율 (꾸덕함 핵심)
+    const CAT_SIZE = 60;
 
     // (완성 판정은 이제 fill/melt가 스크롤 기반이라 필수는 아님)
     const COMPLETE_THRESHOLD = 0.995;
@@ -139,11 +141,16 @@
     let loaderEl;
     let loaderHidden = false;
     let scroller;
+    let catImg;
 
     // Melt data
     let drips = [];
     let nextSeeds = [];     // 다음 애니메이션으로 넘길 seed(끝점들)
     let vehicle;
+
+    function preload() {
+      catImg = loadImage("asset/cat.png");
+    }
 
     function setup() {
       createCanvas(window.innerWidth, window.innerHeight);
@@ -154,12 +161,24 @@
       rebuildPaths();
       vehicle = new Vehicle(width * 0.5, height * 0.35);
 
+      setTimeout(hideLoader, 1200);
+
       scroller.addEventListener("scroll", () => {
         targetP = calcScrollProgress(scroller);
       }, { passive: true });
 
       targetP = calcScrollProgress(scroller);
       currentP = targetP;
+    }
+
+    function hideLoader() {
+      if (!loaderEl || loaderHidden) return;
+      loaderHidden = true;
+      loaderEl.style.opacity = "0";
+      loaderEl.style.pointerEvents = "none";
+      setTimeout(() => {
+        loaderEl.style.display = "none";
+      }, 400);
     }
 
     function windowResized() {
@@ -169,10 +188,6 @@
 
     function draw() {
       background(BG);
-      if (!loaderHidden && loaderEl) {
-        loaderEl.style.display = 'none';
-        loaderHidden = true;
-      }
 
       // 스크롤 진행률
       currentP = lerp(currentP, targetP, SMOOTHING);
@@ -476,11 +491,11 @@
         this.pos = createVector(x, y);
         this.vel = createVector(0, 0);
         this.acc = createVector(0, 0);
-        this.r = 8;
-        this.maxSpeed = 6;
-        this.maxSpeedFar = 10; // go faster when far away
-        this.maxForce = 0.8;
-      }
+      this.r = 8;
+      this.maxSpeed = 6;
+      this.maxSpeedFar = 10; // go faster when far away
+      this.maxForce = 0.8;
+    }
       applyForce(f) { this.acc.add(f); }
       arrive(target) {
         const desired = p5.Vector.sub(target, this.pos);
@@ -502,7 +517,7 @@
         const steer = p5.Vector.sub(desired, this.vel);
         steer.limit(this.maxForce);
         return steer;
-      }
+    }
       update() {
         this.vel.add(this.acc);
         this.vel.limit(this.maxSpeed);
@@ -512,10 +527,17 @@
       show() {
         push();
         translate(this.pos.x, this.pos.y);
-        rotate(this.vel.heading());
-        noStroke();
-        fill(255);
-        triangle(-this.r, -this.r * 0.6, -this.r, this.r * 0.6, this.r, 0);
+        const angleToMouse = Math.atan2(mouseY - this.pos.y, mouseX - this.pos.x);
+        rotate(angleToMouse);
+        if (catImg) {
+          imageMode(CENTER);
+          const h = catImg.height && catImg.width ? CAT_SIZE * (catImg.height / catImg.width) : CAT_SIZE;
+          image(catImg, 0, 0, CAT_SIZE, h);
+        } else {
+          noStroke();
+          fill(255);
+          triangle(-this.r, -this.r * 0.6, -this.r, this.r * 0.6, this.r, 0);
+        }
         pop();
       }
     }
