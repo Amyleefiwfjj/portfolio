@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Bio Image Bubble Slideshow</title>
+    <style>
+        :root {
+            --bg: #0b0b0b;
+            --fg: rgba(255, 255, 255, .88);
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--fg);
+            overflow: hidden;
+        }
+
+        .stage {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            isolation: isolate;
+        }
+
+        .stage.dim::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, .55);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            z-index: 50;
+        }
+
+        /* 버블 */
+        .bubble {
+            position: absolute;
+            border-radius: 999px;
+            overflow: hidden;
+            /* fallback */
+            clip-path: circle(50% at 50% 50%);
+            box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
+            background: rgba(255, 255, 255, .04);
+            cursor: pointer;
+            transform: translateZ(0);
+            transition: transform .25s ease, filter .25s ease;
+            will-change: transform;
+            z-index: 1;
+        }
+
+        .bubble:hover {
+            filter: brightness(1.05);
+            transform: scale(1.03);
+        }
+
+        /* 내부 이미지 */
+        .bubble img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: translate(var(--px, 0px), var(--py, 0px)) scale(1.06);
+            transition: opacity .45s ease;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .bubble img.next {
+            opacity: 0;
+        }
+
+        .bubble.focus {
+            z-index: 60;
+            position: absolute;
+            left: 50% !important;
+            top: 50% !important;
+            transform: translate(-50%, -50%) scale(1.65) !important;
+            box-shadow: 0 30px 120px rgba(0, 0, 0, .6);
+            cursor: zoom-out;
+        }
+
+        /* 작은 UI */
+        .hud {
+            position: fixed;
+            left: 16px;
+            bottom: 16px;
+            font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            color: rgba(255, 255, 255, .70);
+            z-index: 999;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .hud kbd {
+            font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .14);
+            padding: 2px 6px;
+            border-radius: 6px;
+            margin: 0 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="stage" id="stage"></div>
+    <div class="hud">
+        Hover: pause · Click: next · <kbd>Space</kbd> toggle global pause
+    </div>
+
+    <script>
+        const TOTAL = 33;
+
+        const imageUrls = Array.from({ length: TOTAL }, (_, i) => {
+            return `./asset/bio/${i + 1}.jpg`;
+        });
+
+
+        // 2) 버블 설정
+        const BUBBLES = 20;
+        const stage = document.getElementById('stage');
+        let globalPaused = false;
+
+        // 3) 80장을 20개 버블에 분배 (라운드로빈)
+        const buckets = Array.from({ length: BUBBLES }, () => []);
+        imageUrls.forEach((url, idx) => buckets[idx % BUBBLES].push(url));
+
+        // 4) 크기 다양화 (px) + 반응형 스케일
+        function sizeFor(i) {
+            // 작은/중간/큰 섞기
+            const base = [120, 140, 160, 180, 210, 240, 280, 320];
+            const pick = base[(i * 7) % base.length];
+            const scale = Math.min(innerWidth, innerHeight) / 900; // 화면에 따라 자동 스케일
+            return Math.round(pick * Math.max(0.85, Math.min(1.25, scale)));
+        }
+
+        // 5) 충돌이 심하지 않게 랜덤 배치(간단 회피)
+        function placeBubbles(dimensions) {
+            const placed = [];
+            const padding = 12;
+
+            const W = stage.clientWidth;
+            const H = stage.clientHeight;
+
+            function intersects(a, b) {
+                const ax = a.x + a.r, ay = a.y + a.r;
+                const bx = b.x + b.r, by = b.y + b.r;
+                const d = Math.hypot(ax - bx, ay - by);
+                return d < (a.r + b.r + padding);
+            }
+
+            for (let i = 0; i < dimensions.length; i++) {
+                const r = dimensions[i] / 2;
+                let candidate = null;
+
+                // 최대 N번 시도
+                for (let tries = 0; tries < 600; tries++) {
+                    const x = Math.random() * (W - dimensions[i]);
+                    const y = Math.random() * (H - dimensions[i]);
+                    const c = { x, y, r };
+
+                    let ok = true;
+                    for (const p of placed) {
+                        if (intersects(c, p)) { ok = false; break; }
+                    }
+                    if (ok) { candidate = c; break; }
+                }
+
+                // 실패하면 그냥 배치(조금 겹쳐도 허용)
+                if (!candidate) {
+                    candidate = {
+                        x: Math.random() * (W - dimensions[i]),
+                        y: Math.random() * (H - dimensions[i]),
+                        r
+                    };
+                }
+
+                placed.push(candidate);
+            }
+            return placed;
+        }
+
+        // 6) 버블 생성 + 슬라이드쇼 로직
+        const bubbleState = [];
+
+                function createBubble(i) {
+            const d = sizeFor(i);
+            const el = document.createElement('div');
+            el.className = 'bubble';
+            el.style.width = d + 'px';
+            el.style.height = d + 'px';
+
+            // ??? 2?? ??????
+            const imgA = document.createElement('img');
+            const imgB = document.createElement('img');
+            imgB.classList.add('next');
+
+            const list = buckets[i];
+            let idx = 0;
+            imgA.src = list[idx];
+            imgB.src = list[(idx + 1) % list.length];
+
+            el.appendChild(imgA);
+            el.appendChild(imgB);
+            stage.appendChild(el);
+
+            const st = {
+                el, d,
+                list,
+                idx,
+                a: imgA,
+                b: imgB,
+                showingA: true,
+                paused: false,
+                timer: null,
+            };
+            bubbleState.push(st);
+
+            el.addEventListener('dblclick', (e) => e.preventDefault()); // ??? ??? ?? ??
+            el.style.touchAction = "none";
+
+            let dragging = false;
+            let startX = 0, startY = 0, baseL = 0, baseT = 0;
+
+            el.addEventListener('pointerdown', (e) => {
+                dragging = true;
+                st.paused = true;
+                el.setPointerCapture(e.pointerId);
+                startX = e.clientX; startY = e.clientY;
+
+                const l = parseFloat(el.style.left || 0);
+                const t = parseFloat(el.style.top || 0);
+                baseL = l; baseT = t;
+            });
+
+            el.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+                el.style.left = (baseL + dx) + "px";
+                el.style.top = (baseT + dy) + "px";
+            });
+
+            el.addEventListener('pointerup', (e) => {
+                dragging = false;
+                st.paused = false;
+                try { el.releasePointerCapture(e.pointerId); } catch (_) { }
+            });
+
+            function scheduleNext() {
+                clearTimeout(st.timer);
+                const base = 1200 + Math.random() * 2200; // ?? ?? ??
+                st.timer = setTimeout(() => {
+                    if (globalPaused || st.paused) return scheduleNext();
+                    nextImage(st);
+                    scheduleNext();
+                }, base);
+            }
+
+            scheduleNext();
+            return st;
+        }
+function nextImage(st) {
+            st.idx = (st.idx + 1) % st.list.length;
+
+            const incoming = st.showingA ? st.b : st.a;
+            const outgoing = st.showingA ? st.a : st.b;
+
+            incoming.src = st.list[st.idx];
+            incoming.style.opacity = 0;
+            incoming.classList.add('next');
+
+            // 다음 프레임에 페이드 인
+            requestAnimationFrame(() => {
+                incoming.style.opacity = 1;
+                outgoing.style.opacity = 0;
+            });
+
+            // 트랜지션 끝나면 역할 교대
+            setTimeout(() => {
+                outgoing.classList.add('next');
+                incoming.classList.remove('next');
+                outgoing.style.opacity = 1; // 다음 라운드 대비
+                st.showingA = !st.showingA;
+            }, 480);
+        }
+
+        function layout() {
+            stage.innerHTML = '';
+            bubbleState.length = 0;
+
+            const dims = Array.from({ length: BUBBLES }, (_, i) => sizeFor(i));
+            const positions = placeBubbles(dims);
+
+            for (let i = 0; i < BUBBLES; i++) {
+                const st = createBubble(i);
+                const p = positions[i];
+                st.el.style.left = p.x + 'px';
+                st.el.style.top = p.y + 'px';
+            }
+        }
+
+        // 전역 pause 토글
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                globalPaused = !globalPaused;
+            }
+        });
+
+        window.addEventListener('resize', layout);
+        layout();
+    </script>
+</body>
+
+</html>
