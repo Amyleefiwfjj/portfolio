@@ -52,31 +52,36 @@
       backdrop-filter: blur(6px);
     }
     .loader {
-      width: 120px;
-      height: 22px;
-      border-radius: 40px;
-      color: #514b82;
-      border: 2px solid;
+      width: 80px;
+      height: 40px;
+      border-radius: 100px 100px 0 0;
       position: relative;
       overflow: hidden;
     }
     .loader::before {
       content: "";
       position: absolute;
-      margin: 2px;
-      width: 14px;
-      top: 0;
-      bottom: 0;
-      left: -20px;
-      border-radius: inherit;
-      background: currentColor;
-      box-shadow: -10px 0 12px 3px currentColor;
-      clip-path: polygon(0 5%, 100% 0, 100% 100%, 0 95%, -30px 50%);
-      animation: l14 1s infinite linear;
+      inset: 0 0 -100%;
+      background:
+        radial-gradient(farthest-side, #ffd738 80%, #0000) left 70% top 20%/15px 15px,
+        radial-gradient(farthest-side, #020308 92%, #0000) left 65% bottom 19%/12px 12px,
+        radial-gradient(farthest-side, #ecfefe 92%, #0000) left 70% bottom 20%/15px 15px,
+        linear-gradient(#9eddfe 50%, #020308 0);
+      background-repeat: no-repeat;
+      animation: l5 2s infinite;
     }
-    @keyframes l14 {
+    @keyframes l5 {
+      0%,
+      20% {
+        transform: rotate(0)
+      }
+      40%,
+      60% {
+        transform: rotate(.5turn)
+      }
+      80%,
       100% {
-        left: calc(100% + 20px)
+        transform: rotate(1turn)
       }
     }
   </style>
