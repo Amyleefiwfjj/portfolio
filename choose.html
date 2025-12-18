@@ -108,6 +108,16 @@
             will-change: transform;
         }
 
+        .card .card-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(.9);
+            z-index: 0;
+        }
+
         /* Big label on card */
         .card .label {
             display: flex;
@@ -292,6 +302,12 @@
             { name: "BIOINFORM", short: "BI", href: "./bioinform.html" },
         ];
 
+        const imageMap = {
+            "BIO": "./asset/1.jpg",
+            "ART_TECH": "./asset/2.jpg",
+            "BIOINFORM": "./asset/3.jpg",
+        };
+
         const deck = document.getElementById("deck");
         const pageTitle = document.getElementById("pageTitle");
         const prevBtn = document.getElementById("prevBtn");
@@ -331,6 +347,7 @@
                 card.dataset.short = p.short;
 
                 card.innerHTML = `
+          <img class="card-img" src="${imageMap[p.name] || ''}" alt="">
           <div class="label">
             <div class="name">${p.name}</div>
             <div class="hint">Click to open</div>
