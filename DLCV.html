@@ -986,12 +986,86 @@
         /**
          * ====== IMPORTANT: 결과 이미지 파일명/경로만 맞추면 바로 동작 ======
          * 아래 파일들을 네 결과로 교체:
-         * - ./assets/dlcv/tsne_2d.png
-         * - ./assets/dlcv/cluster0.png ~ cluster4.png
-         * - ./assets/dlcv/kmeans_heatmap.png
-         * - ./assets/dlcv/eval_cm.png
-         * - ./assets/dlcv/misclassified_strip.png
+         * - ./asset/dlcv/tsne_2d.png
+         * - ./asset/dlcv/cluster0.png ~ cluster4.png
+         * - ./asset/dlcv/kmeans_heatmap.png
+         * - ./asset/dlcv/eval_cm.png
+         * - ./asset/dlcv/misclassified_strip.png
          */
+
+        // ===== Cluster image sets (K=5, CID 0~4) =====
+        // 경로는 반드시 asset/ 로.
+        const CLUSTER_IMAGE_SETS = {
+            raw: {
+                name: "Raw",
+                clusters: [
+                    { cid: 0, img: "asset/dlcv/cluster0.png" },
+                    { cid: 1, img: "asset/dlcv/cluster1.png" },
+                    { cid: 2, img: "asset/dlcv/cluster2.png" },
+                    { cid: 3, img: "asset/dlcv/cluster3.png" },
+                    { cid: 4, img: "asset/dlcv/cluster4.png" },
+                ],
+            },
+            cleaned: {
+                name: "Artifact-removed",
+                clusters: [
+                    { cid: 0, img: "asset/dlcv/cluster0-top 9 nearest to centroid.png.png" },
+                    { cid: 1, img: "asset/dlcv/cluster1-top 9 nearest to centroid.png" },
+                    { cid: 2, img: "asset/dlcv/cluster2-top 9 nearest to centroid.png" },
+                    { cid: 3, img: "asset/dlcv/cluster3-top 9 nearest to centroid.png" },
+                    { cid: 4, img: "asset/dlcv/cluster4-top 9 nearest to centroid.png" },
+                ],
+            }
+        };
+
+        let currentClusterSetKey = "raw";
+
+        function safeSrc(path) {
+            const parts = path.split("/");
+            const file = parts.pop();
+            return [...parts, encodeURIComponent(file)].join("/");
+        }
+
+        function renderClusterList() {
+            const wrap = document.getElementById("clusterList");
+            const pill = document.getElementById("clusterSetPill");
+            if (!wrap || !pill) return;
+
+            const set = CLUSTER_IMAGE_SETS[currentClusterSetKey];
+            pill.textContent = `Set: ${set.name}`;
+
+            wrap.innerHTML = "";
+
+            set.clusters.forEach(({ cid, img }) => {
+                const details = document.createElement("details");
+                details.className = "cluster";
+                details.innerHTML = `
+      <summary>
+        <div class="sum-left">
+          <b>Cluster ${cid}</b>
+          <span>Top-9 nearest to centroid</span>
+        </div>
+        <div class="chev">⌄</div>
+      </summary>
+      <div class="cluster-body">
+        <div class="imgbox">
+          <img src="${safeSrc(img)}" alt="Cluster ${cid} top-9" loading="lazy" />
+        </div>
+      </div>
+    `;
+                wrap.appendChild(details);
+            });
+        }
+
+        const toggleBtn = document.getElementById("toggleClusterSet");
+        if (toggleBtn) {
+            toggleBtn.addEventListener("click", () => {
+                currentClusterSetKey = (currentClusterSetKey === "raw") ? "cleaned" : "raw";
+                renderClusterList();
+            });
+        }
+
+        renderClusterList();
     </script>
 </body>
 
