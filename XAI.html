@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>XAI Embedding Explorer</title>
+    <style>
+        :root {
+            --bg: #0b0b0b;
+            --panel: #121212;
+            --fg: rgba(255, 255, 255, .9);
+            --muted: rgba(255, 255, 255, .6);
+            --line: rgba(255, 255, 255, .12);
+            --accent: #7c5cff;
+            --radius: 18px;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--fg);
+            overflow: hidden;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", sans-serif;
+        }
+
+        .wrap {
+            height: 100%;
+            display: grid;
+            grid-template-columns: 1.2fr .8fr;
+            gap: 14px;
+            padding: 14px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: 0 18px 60px rgba(0, 0, 0, .5);
+            overflow: hidden;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .title {
+            font-weight: 700;
+            letter-spacing: .2px
+        }
+
+        .sub {
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .main {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            height: 100%;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01));
+        }
+
+        .side {
+            display: grid;
+            grid-template-rows: auto auto 1fr;
+            height: 100%;
+        }
+
+        .pane {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .kv {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            color: var(--muted)
+        }
+
+        .btn {
+            appearance: none;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, .04);
+            color: var(--fg);
+            border-radius: 999px;
+            padding: 8px 10px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            border-color: rgba(255, 255, 255, .22)
+        }
+
+        .preview {
+            padding: 12px 14px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .imgbox {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            overflow: hidden;
+            background: #0e0e0e;
+        }
+
+        .imgbox img {
+            width: 100%;
+            height: auto;
+            display: block
+        }
+
+        .neighbors {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .chip {
+            font-size: 12px;
+            color: var(--fg);
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, .03);
+            cursor: pointer;
+        }
+
+        .chip:hover {
+            border-color: rgba(255, 255, 255, .22)
+        }
+
+        .hint {
+            font-size: 12px;
+            color: var(--muted)
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <!-- LEFT: MAP -->
+        <section class="card main">
+            <div class="topbar">
+                <div>
+                    <div class="title">XAI Embedding Map</div>
+                    <div class="sub">Contrastive IG (wrong eos→neut) 기반 · 클릭해서 케이스 탐색</div>
+                </div>
+                <div class="kv">
+                    <button class="btn" id="fitBtn">Fit</button>
+                    <button class="btn" id="clearBtn">Clear</button>
+                </div>
+            </div>
+            <canvas id="map"></canvas>
+        </section>
+
+        <!-- RIGHT: DETAILS -->
+        <section class="card side">
+            <div class="topbar">
+                <div>
+                    <div class="title">Selected</div>
+                    <div class="sub" id="selSub">아무 점이나 클릭하세요</div>
+                </div>
+            </div>
+
+
+            <div class="preview" id="preview">
+                <div class="hint">선택된 항목이 여기 표시됩니다.</div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('map');
+        const ctx = canvas.getContext('2d');
+        const preview = document.getElementById('preview');
+        const selSub = document.getElementById('selSub');
+
+        let data = [];
+        let points = [];
+        let selectedId = null;
+
+        function resize() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = Math.max(1, window.devicePixelRatio || 1);
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            draw();
+        }
+        window.addEventListener('resize', resize);
+
+        function extent(vals) {
+            let mn = Infinity, mx = -Infinity;
+            for (const v of vals) { if (v < mn) mn = v; if (v > mx) mx = v; }
+            if (mn === mx) { mn -= 1; mx += 1; }
+            return [mn, mx];
+        }
+
+        function buildPoints() {
+            const xs = data.map(d => d.umap2d[0]);
+            const ys = data.map(d => d.umap2d[1]);
+            const [xmin, xmax] = extent(xs);
+            const [ymin, ymax] = extent(ys);
+
+            const pad = 24;
+            const w = canvas.getBoundingClientRect().width;
+            const h = canvas.getBoundingClientRect().height;
+
+            points = data.map(d => {
+                const x = pad + ((d.umap2d[0] - xmin) / (xmax - xmin)) * (w - pad * 2);
+                const y = pad + ((d.umap2d[1] - ymin) / (ymax - ymin)) * (h - pad * 2);
+                return { id: d.id, x, y };
+            });
+        }
+
+        function draw() {
+            if (!data.length) return;
+            buildPoints();
+
+            const w = canvas.getBoundingClientRect().width;
+            const h = canvas.getBoundingClientRect().height;
+            ctx.clearRect(0, 0, w, h);
+
+            // subtle grid
+            ctx.globalAlpha = 0.25;
+            ctx.strokeStyle = 'rgba(255,255,255,.08)';
+            for (let i = 1; i < 6; i++) {
+                const gx = (w / 6) * i, gy = (h / 6) * i;
+                ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, h); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(w, gy); ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+
+            for (const p of points) {
+                const isSel = (p.id === selectedId);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, isSel ? 6 : 4, 0, Math.PI * 2);
+                ctx.fillStyle = isSel ? 'rgba(124,92,255,.95)' : 'rgba(255,255,255,.65)';
+                ctx.fill();
+                if (isSel) {
+                    ctx.strokeStyle = 'rgba(124,92,255,.55)';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function hitTest(mx, my) {
+            // closest point within radius
+            let best = null;
+            let bestD = 999999;
+            for (const p of points) {
+                const dx = p.x - mx, dy = p.y - my;
+                const d = dx * dx + dy * dy;
+                if (d < bestD) {
+                    bestD = d; best = p;
+                }
+            }
+            if (best && bestD <= (12 * 12)) return best.id;
+            return null;
+        }
+
+        function renderSelected(item) {
+            selectedId = item.id;
+            selSub.textContent = `${item.title} · ${item.file}`;
+
+            const neigh = (item.neighbors || []).map(idx => data[idx]).filter(Boolean);
+
+            preview.innerHTML = `
+      <div class="imgbox"><img src="${item.file}" alt="${item.title}"></div>
+      <div class="kv">
+        <span>id: <b>${item.id}</b></span>
+        <span>kind: <b>${item.kind || '-'}</b></span>
+      </div>
+      <div>
+        <div class="sub" style="margin-bottom:8px;">Similar cases</div>
+        <div class="neighbors">
+          ${neigh.map(n => `<div class="chip" data-id="${n.id}">${n.id}</div>`).join('')}
+        </div>
+      </div>
+    `;
+
+            // neighbor chip click
+            preview.querySelectorAll('.chip').forEach(ch => {
+                ch.addEventListener('click', () => {
+                    const id = ch.getAttribute('data-id');
+                    const it = data.find(d => d.id === id);
+                    if (it) { renderSelected(it); draw(); }
+                });
+            });
+
+            draw();
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const id = hitTest(mx, my);
+            if (!id) return;
+            const item = data.find(d => d.id === id);
+            if (item) renderSelected(item);
+        });
+
+        document.getElementById('fitBtn').addEventListener('click', draw);
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            selectedId = null;
+            selSub.textContent = '아무 점이나 클릭하세요';
+            preview.innerHTML = `<div class="hint">선택된 항목이 여기 표시됩니다.</div>`;
+            draw();
+        });
+
+        async function init() {
+            const res = await fetch('./embeddings.json', { cache: 'no-store' });
+            data = await res.json();
+            resize();
+        }
+        init();
+    </script>
+</body>
+
+</html>
