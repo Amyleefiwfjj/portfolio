@@ -26,18 +26,7 @@
             height: 100vh;
             isolation: isolate;
         }
-
-        .stage.dim::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, .55);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
-            z-index: 50;
-        }
-
-        /* 버블 */
+/* 버블 */
         .bubble {
             position: absolute;
             border-radius: 999px;
@@ -74,18 +63,7 @@
         .bubble img.next {
             opacity: 0;
         }
-
-        .bubble.focus {
-            z-index: 60;
-            position: absolute;
-            left: 50% !important;
-            top: 50% !important;
-            transform: translate(-50%, -50%) scale(1.65) !important;
-            box-shadow: 0 30px 120px rgba(0, 0, 0, .6);
-            cursor: zoom-out;
-        }
-
-        /* 작은 UI */
+/* 작은 UI */
         .hud {
             position: fixed;
             left: 16px;
@@ -111,7 +89,7 @@
 <body>
     <div class="stage" id="stage"></div>
     <div class="hud">
-        Hover: pause · Click: next · <kbd>Space</kbd> toggle global pause
+        Drag bubbles to move · Slides auto-rotate
     </div>
 
     <script>
@@ -186,17 +164,17 @@
             return placed;
         }
 
-        // 6) 버블 생성 + 슬라이드쇼 로직
+        // 6) Bubble state + creation
         const bubbleState = [];
 
-                function createBubble(i) {
+        function createBubble(i) {
             const d = sizeFor(i);
             const el = document.createElement('div');
             el.className = 'bubble';
             el.style.width = d + 'px';
             el.style.height = d + 'px';
 
-            // ??? 2?? ??????
+            // Use two images for crossfade
             const imgA = document.createElement('img');
             const imgB = document.createElement('img');
             imgB.classList.add('next');
@@ -222,7 +200,7 @@
             };
             bubbleState.push(st);
 
-            el.addEventListener('dblclick', (e) => e.preventDefault()); // ??? ??? ?? ??
+            el.addEventListener('dblclick', (e) => e.preventDefault());
             el.style.touchAction = "none";
 
             let dragging = false;
@@ -233,10 +211,8 @@
                 st.paused = true;
                 el.setPointerCapture(e.pointerId);
                 startX = e.clientX; startY = e.clientY;
-
-                const l = parseFloat(el.style.left || 0);
-                const t = parseFloat(el.style.top || 0);
-                baseL = l; baseT = t;
+                baseL = parseFloat(el.style.left || 0);
+                baseT = parseFloat(el.style.top || 0);
             });
 
             el.addEventListener('pointermove', (e) => {
@@ -255,7 +231,7 @@
 
             function scheduleNext() {
                 clearTimeout(st.timer);
-                const base = 1200 + Math.random() * 2200; // ?? ?? ??
+                const base = 1200 + Math.random() * 2200;
                 st.timer = setTimeout(() => {
                     if (globalPaused || st.paused) return scheduleNext();
                     nextImage(st);
@@ -266,7 +242,8 @@
             scheduleNext();
             return st;
         }
-function nextImage(st) {
+
+        function nextImage(st) {
             st.idx = (st.idx + 1) % st.list.length;
 
             const incoming = st.showingA ? st.b : st.a;
@@ -276,17 +253,15 @@ function nextImage(st) {
             incoming.style.opacity = 0;
             incoming.classList.add('next');
 
-            // 다음 프레임에 페이드 인
             requestAnimationFrame(() => {
                 incoming.style.opacity = 1;
                 outgoing.style.opacity = 0;
             });
 
-            // 트랜지션 끝나면 역할 교대
             setTimeout(() => {
                 outgoing.classList.add('next');
                 incoming.classList.remove('next');
-                outgoing.style.opacity = 1; // 다음 라운드 대비
+                outgoing.style.opacity = 1;
                 st.showingA = !st.showingA;
             }, 480);
         }
