@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Project Cards</title>
+    <style>
+        :root {
+            --bg: #0b0b0b;
+            --fg: rgba(255, 255, 255, .9);
+            --muted: rgba(255, 255, 255, .65);
+            --card: #121212;
+            --stroke: rgba(255, 255, 255, .14);
+            --shadow: 0 24px 80px rgba(0, 0, 0, .55);
+            --shadow2: 0 12px 40px rgba(0, 0, 0, .45);
+            --radius: 22px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--fg);
+            overflow: hidden;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        }
+
+        .wrap {
+            height: 100%;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            align-items: center;
+            justify-items: center;
+            padding: 28px 18px;
+        }
+
+        .title {
+            text-align: center;
+            line-height: 1.15;
+            user-select: none;
+        }
+
+        .title h1 {
+            margin: 0;
+            font-size: clamp(28px, 4vw, 46px);
+            letter-spacing: .4px;
+        }
+
+        .title p {
+            margin: 10px 0 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .stage {
+            position: relative;
+            width: min(760px, 96vw);
+            height: min(520px, 66vh);
+            display: grid;
+            place-items: center;
+            isolation: isolate;
+        }
+
+        /* Card stack container */
+        .deck {
+            position: relative;
+            width: min(520px, 92vw);
+            height: min(360px, 52vh);
+        }
+
+        /* Card base */
+        .card {
+            position: absolute;
+            inset: 0;
+            margin: auto;
+            width: 100%;
+            height: 100%;
+            border-radius: var(--radius);
+            border: 1px solid var(--stroke);
+            background:
+                radial-gradient(1200px 520px at 10% 10%, rgba(255, 255, 255, .10), transparent 45%),
+                radial-gradient(900px 520px at 90% 20%, rgba(255, 255, 255, .06), transparent 50%),
+                var(--card);
+            box-shadow: var(--shadow2);
+            overflow: hidden;
+
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-start;
+
+            padding: 18px 18px 16px;
+            cursor: pointer;
+            transform: translateZ(0);
+            transition:
+                transform .45s cubic-bezier(.2, .8, .2, 1),
+                filter .35s ease,
+                opacity .35s ease,
+                box-shadow .45s cubic-bezier(.2, .8, .2, 1);
+            will-change: transform;
+        }
+
+        /* Big label on card */
+        .card .label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 2;
+        }
+
+        .card .label .name {
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: .3px;
+        }
+
+        .card .label .hint {
+            font-size: 12px;
+            color: rgba(255, 255, 255, .72);
+        }
+
+        /* Decorative corner mark (playing-card vibe) */
+        .card::before {
+            content: attr(data-short);
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            font-weight: 800;
+            letter-spacing: .5px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, .9);
+            padding: 8px 10px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .07);
+            border: 1px solid rgba(255, 255, 255, .12);
+            z-index: 2;
+            user-select: none;
+        }
+
+        .card::after {
+            content: "";
+            position: absolute;
+            inset: -40%;
+            background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, .08) 45%, transparent 55%);
+            transform: translateX(-30%) rotate(12deg);
+            opacity: .55;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* Position states (left / center / right) */
+        .pos-left {
+            transform: translateX(-18%) rotate(-8deg) scale(.92);
+            opacity: .85;
+            filter: brightness(.85);
+            z-index: 1;
+        }
+
+        .pos-center {
+            transform: translateX(0) rotate(0deg) scale(1);
+            opacity: 1;
+            filter: brightness(1);
+            z-index: 3;
+            box-shadow: var(--shadow);
+        }
+
+        .pos-right {
+            transform: translateX(18%) rotate(8deg) scale(.92);
+            opacity: .85;
+            filter: brightness(.85);
+            z-index: 1;
+        }
+
+        .card:hover {
+            filter: brightness(1.05);
+        }
+
+        .pos-left:hover,
+        .pos-right:hover {
+            filter: brightness(.95);
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            user-select: none;
+        }
+
+        .btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .16);
+            background: rgba(255, 255, 255, .06);
+            color: rgba(255, 255, 255, .9);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+            transition: transform .15s ease, background .15s ease, border-color .15s ease;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, .10);
+            border-color: rgba(255, 255, 255, .22);
+        }
+
+        .btn:active {
+            transform: scale(.96);
+        }
+
+        .btn:focus {
+            outline: none;
+        }
+
+        .btn:focus-visible {
+            outline: 2px solid rgba(255, 255, 255, .28);
+            outline-offset: 3px;
+        }
+
+        .footer {
+            font-size: 12px;
+            color: rgba(255, 255, 255, .55);
+            text-align: center;
+            line-height: 1.45;
+            user-select: none;
+        }
+
+        .footer kbd {
+            font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .14);
+            padding: 2px 6px;
+            border-radius: 6px;
+            margin: 0 3px;
+            color: rgba(255, 255, 255, .75);
+        }
+
+        @media (max-width:420px) {
+            .card .label .name {
+                font-size: 18px;
+            }
+
+            .deck {
+                height: min(320px, 50vh);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="title" aria-live="polite">
+            <h1 id="pageTitle">BIO</h1>
+            <p>카드를 클릭하면 해당 페이지로 이동합니다.</p>
+        </div>
+
+        <div class="stage">
+            <div class="deck" id="deck" aria-label="Project navigation cards">
+                <!-- Cards injected by JS -->
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="prevBtn" type="button" aria-label="Previous">
+                &#x2039;
+            </button>
+            <button class="btn" id="nextBtn" type="button" aria-label="Next">
+                &#x203A;
+            </button>
+        </div>
+
+        <div class="footer">
+            키보드도 지원: <kbd>←</kbd> <kbd>→</kbd> / 중앙 카드 클릭
+        </div>
+    </div>
+
+    <script>
+        const projects = [
+            { name: "ART_TECH", short: "AT", href: "./art_tech.html" },
+            { name: "BIO", short: "BIO", href: "./bio.html" },
+            { name: "BIOINFORM", short: "BI", href: "./bioinform.html" },
+        ];
+
+        const deck = document.getElementById("deck");
+        const pageTitle = document.getElementById("pageTitle");
+        const prevBtn = document.getElementById("prevBtn");
+        const nextBtn = document.getElementById("nextBtn");
+
+        let current = 1; // 시작: BIO(가운데)
+
+        function mod(n, m) { return ((n % m) + m) % m; }
+
+        function render() {
+            deck.innerHTML = "";
+
+            const n = projects.length;
+
+            // left, center, right indices based on current
+            const leftIdx = mod(current - 1, n);
+            const centerIdx = mod(current, n);
+            const rightIdx = mod(current + 1, n);
+
+            const order = [
+                { idx: leftIdx, pos: "pos-left" },
+                { idx: centerIdx, pos: "pos-center" },
+                { idx: rightIdx, pos: "pos-right" }
+            ];
+
+            pageTitle.textContent = projects[centerIdx].name;
+
+            order.forEach(({ idx, pos }) => {
+                const p = projects[idx];
+
+                const card = document.createElement("div");
+                card.className = `card ${pos}`;
+                card.setAttribute("role", "button");
+                card.setAttribute("tabindex", pos === "pos-center" ? "0" : "-1");
+                card.setAttribute("aria-label", `${p.name} 페이지로 이동`);
+                card.dataset.href = p.href;
+                card.dataset.short = p.short;
+
+                card.innerHTML = `
+          <div class="label">
+            <div class="name">${p.name}</div>
+            <div class="hint">Click to open</div>
+          </div>
+        `;
+
+                card.addEventListener("click", () => {
+                    window.location.href = p.href;
+                });
+
+                card.addEventListener("keydown", (e) => {
+                    if (pos !== "pos-center") return;
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        window.location.href = p.href;
+                    }
+                });
+
+                deck.appendChild(card);
+            });
+        }
+
+        function prev() {
+            current = mod(current - 1, projects.length);
+            render();
+        }
+        function next() {
+            current = mod(current + 1, projects.length);
+            render();
+        }
+
+        prevBtn.addEventListener("click", prev);
+        nextBtn.addEventListener("click", next);
+
+        window.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft") prev();
+            if (e.key === "ArrowRight") next();
+        });
+
+        render();
+    </script>
+</body>
+
+</html>
