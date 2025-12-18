@@ -1,16 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Art &amp; Technology</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Art & Technology</title>
+
+    <style>
+        :root {
+            --bg: #0b0b0b;
+            --card: #141414;
+            --fg: rgba(255, 255, 255, 0.9);
+            --muted: rgba(255, 255, 255, 0.6);
+            --accent: #7c5cff;
+            --radius: 18px;
+            --shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        }
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card {
+            width: min(420px, 90vw);
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 32px 28px;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 1.25rem;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        p {
+            margin: 0 0 22px;
+            font-size: 0.95rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--accent);
+            color: #fff;
+            text-decoration: none;
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            box-shadow: 0 10px 30px rgba(124, 92, 255, 0.35);
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 40px rgba(124, 92, 255, 0.45);
+        }
+
+        .hint {
+            margin-top: 16px;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+    </style>
 </head>
+
 <body>
-    <p>Opening the Notion page in a new window&hellip;</p>
-    <p>If it does not appear, <a id="notion-link" href="https://lowly-chestnut-6a4.notion.site/Art-Technology-2cd4b5adedae80cba53ac2dbe5781388?source=copy_link" target="_blank" rel="noopener noreferrer">click here</a>.</p>
+    <div class="card">
+        <h1>Art & Technology</h1>
+        <p>
+            Opening the project documentation<br />
+            in a new window.
+        </p>
+
+        <a id="notion-link" class="btn"
+            href="https://lowly-chestnut-6a4.notion.site/Art-Technology-2cd4b5adedae80cba53ac2dbe5781388?source=copy_link"
+            target="_blank" rel="noopener noreferrer">
+            Open Notion Page
+        </a>
+
+        <div class="hint">
+            If the page does not open automatically,<br />
+            please use the button above.
+        </div>
+    </div>
 
     <script>
-        const notionUrl = "https://lowly-chestnut-6a4.notion.site/Art-Technology-2cd4b5adedae80cba53ac2dbe5781388?source=copy_link";
+        const notionUrl =
+            "https://lowly-chestnut-6a4.notion.site/Art-Technology-2cd4b5adedae80cba53ac2dbe5781388?source=copy_link";
 
         window.addEventListener("load", () => {
             const popup = window.open(
@@ -25,4 +125,5 @@
         });
     </script>
 </body>
+
 </html>
