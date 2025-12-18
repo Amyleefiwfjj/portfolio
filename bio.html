@@ -27,6 +27,52 @@
             isolation: isolate;
         }
 
+        #reader {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+        }
+
+        .reader-bg {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, .7);
+        }
+
+        #readerFrame {
+            position: absolute;
+            inset: 5%;
+            width: 90%;
+            height: 90%;
+            border: none;
+            background: #fff;
+        }
+
+        .guide {
+            position: fixed;
+            top: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            font: 13px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            color: rgba(255, 255, 255, 0.78);
+            letter-spacing: 0.2px;
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            pointer-events: none;
+            user-select: none;
+            animation: fadeOut 1s ease 6s forwards;
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+            }
+        }
+
         /* 버블 */
         .bubble {
             position: absolute;
@@ -90,6 +136,14 @@
 
 <body>
     <div class="stage" id="stage"></div>
+    <div class="guide">
+        Bubble을 드래그해 배치하고, 클릭하여 프로젝트 리포트를 확인하세요.
+    </div>
+
+    <div id="reader" hidden>
+        <div class="reader-bg"></div>
+        <iframe id="readerFrame"></iframe>
+    </div>
 
     <script>
         const TOTAL = 33;
@@ -102,7 +156,14 @@
         // 2) 버블 설정
         const BUBBLES = 20;
         const stage = document.getElementById('stage');
+        const reader = document.getElementById('reader');
+        const frame = document.getElementById('readerFrame');
         let globalPaused = false;
+
+        reader.addEventListener('click', () => {
+            reader.hidden = true;
+            frame.src = "";
+        });
 
         // 3) 80장을 20개 버블에 분배 (라운드로빈)
         const buckets = Array.from({ length: BUBBLES }, () => []);
@@ -187,6 +248,8 @@
             el.appendChild(imgB);
             stage.appendChild(el);
 
+            el.dataset.report = `./asset/reports/report_0${(i % 4) + 1}.pdf`;
+
             const st = {
                 el, d,
                 list,
@@ -203,10 +266,12 @@
             el.style.touchAction = "none";
 
             let dragging = false;
+            let moved = false;
             let startX = 0, startY = 0, baseL = 0, baseT = 0;
 
             el.addEventListener('pointerdown', (e) => {
                 dragging = true;
+                moved = false;
                 st.paused = true;
                 el.setPointerCapture(e.pointerId);
                 startX = e.clientX; startY = e.clientY;
@@ -218,6 +283,7 @@
                 if (!dragging) return;
                 const dx = e.clientX - startX;
                 const dy = e.clientY - startY;
+                if (!moved && (dx * dx + dy * dy) > 16) moved = true; // 작은 흔들림은 클릭으로 처리
                 el.style.left = (baseL + dx) + "px";
                 el.style.top = (baseT + dy) + "px";
             });
@@ -226,6 +292,10 @@
                 dragging = false;
                 st.paused = false;
                 try { el.releasePointerCapture(e.pointerId); } catch (_) { }
+                if (!moved && el.dataset.report) {
+                    frame.src = el.dataset.report;
+                    reader.hidden = false;
+                }
             });
 
             function scheduleNext() {
