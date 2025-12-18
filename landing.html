@@ -212,6 +212,9 @@
       const thresh = maxY - DRIP_PICK_Y;
 
       const candidates = poly.filter(p => p.y >= thresh);
+      const leftPool  = candidates.filter(p => p.x < axisX - 10);
+      const rightPool = candidates.filter(p => p.x > axisX + 10);
+      const tipPool   = candidates.filter(p => Math.abs(p.x - axisX) <= 24);
 
       // 너무 적으면 전체에서 y 상위 구간으로 보강
       const pool = (candidates.length >= 8) ? candidates : poly.slice().sort((a,b)=>b.y-a.y).slice(0, 40);
@@ -219,20 +222,49 @@
       // x가 너무 가까운 드립이 몰리지 않게 간단한 거리 제약
       const out = [];
       const minDx = 26;
+
+      function pushWithSpacing(pt){
+        if (out.every(d => Math.abs(d.x - pt.x) > minDx)){
+          out.push(makeDrip(pt));
+          return true;
+        }
+        return false;
+      }
+
+      function makeDrip(p){
+        return {
+          x: p.x,
+          y: p.y,
+          w: random(18, 34),        // 기본 폭
+          maxLen: random(120, 320), // 최대 길이(꾸덕하게 길게)
+          phase: random(TWO_PI),
+          speed: random(0.7, 1.15),
+          delay: random(0.00, 0.28) // 드립 시작 타이밍(지연)
+        };
+      }
+
+      // 양옆 곡선에서도 드립이 2~3개씩 나오도록 우선 배치
+      const SIDE_TARGET = 2;
+      let guardSides = 0;
+      while (out.length < SIDE_TARGET && guardSides++ < 400 && leftPool.length){
+        const p = leftPool[Math.floor(Math.random() * leftPool.length)];
+        pushWithSpacing(p);
+      }
+      guardSides = 0;
+      while (out.length < SIDE_TARGET * 2 && guardSides++ < 400 && rightPool.length){
+        const p = rightPool[Math.floor(Math.random() * rightPool.length)];
+        pushWithSpacing(p);
+      }
+      // 팁 근처에서도 1개 정도 보장
+      if (tipPool.length){
+        const p = tipPool[Math.floor(Math.random() * tipPool.length)];
+        pushWithSpacing(p);
+      }
+
       let guard = 0;
       while (out.length < count && guard++ < 2000){
         const p = pool[Math.floor(Math.random()*pool.length)];
-        if (out.every(d => Math.abs(d.x - p.x) > minDx)){
-          out.push({
-            x: p.x,
-            y: p.y,
-            w: random(18, 34),        // 기본 폭
-            maxLen: random(120, 320), // 최대 길이(꾸덕하게 길게)
-            phase: random(TWO_PI),
-            speed: random(0.7, 1.15),
-            delay: random(0.00, 0.28) // 드립 시작 타이밍(지연)
-          });
-        }
+        pushWithSpacing(p);
       }
       return out;
     }
