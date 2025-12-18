@@ -47,7 +47,8 @@
             position: relative;
             isolation: isolate;
             overflow: hidden;
-            background: rgba(0, 0, 0, 0.88); /* footer와 어울리게 어두운 반투명 */
+            background: rgba(0, 0, 0, 0.88);
+            /* footer와 어울리게 어두운 반투명 */
             color: #f7f7f7;
             min-height: 15vh;
             padding: 48px clamp(5px, 5vw, 64px);
@@ -71,17 +72,21 @@
 
         .contact-items a {
             color: #f2f2f2;
+            font-weight: 600;
             text-decoration: none;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             display: block;
-            padding: 14px 10px;
-            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+            padding: 14px 12px;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
         }
 
         .contact-items a:hover {
             border-color: rgba(255, 255, 255, 0.4);
             background: rgba(255, 255, 255, 0.08);
             color: #fff;
+            transform: translateY(-2px);
         }
     </style>
 </head>
@@ -90,10 +95,10 @@
     <footer class="footer" id="footer"></footer>
     <section class="contact-panel" aria-label="연락처">
         <div class="contact-items">
-            <a href="mailto:youremail@example.com">youremail@example.com</a>
-            <a href="https://github.com/Amyleefiwfjj" target="_blank" rel="noopener">github.com/Amyleefiwfjj</a>
-            <a href="https://blog.naver.com/da04eun" target="_blank" rel="noopener">blog.naver.com/da04eun</a>
-            <a href="tel:+821012345678">+82 10-1234-5678</a>
+            <a href="mailto:youremail@example.com">[email] youremail@example.com</a>
+            <a href="https://github.com/Amyleefiwfjj" target="_blank" rel="noopener">[github] Amyleefiwfjj</a>
+            <a href="https://blog.naver.com/da04eun" target="_blank" rel="noopener">[blog] da04eun</a>
+            <a href="tel:+821012345678">[phone] 010-1234-5678</a>
         </div>
     </section>
 
