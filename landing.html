@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scroll Heart - Split Fill + Viscous Melt</title>
+  <style>
+    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#0b0b0b; }
+    canvas { display:block; }
+    .scroll-area{ position:fixed; inset:0; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; }
+    .spacer{ height:260vh; }
+    .hint{
+      position:fixed; left:16px; bottom:16px;
+      color:rgba(255,255,255,0.7);
+      font:12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+      z-index:10; user-select:none; pointer-events:none;
+    }
+  </style>
+</head>
+<body>
+  <div class="scroll-area" id="scroller"><div class="spacer"></div></div>
+  <div class="hint">Scroll ↓ draw/fill/melt. Scroll ↑ rewind.</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+  <script>
+    // ===== Config =====
+    const LEFT_COLOR  = "#81d9cc";
+    const RIGHT_COLOR = "#f89a92";
+    const BG = "#0b0b0b";
+
+    const HALF_POINTS = 520;
+    const DOT_SIZE = 4.2;
+    const LINE_WEIGHT = 2.2;
+    const SMOOTHING = 0.12;
+
+    // Fill
+    const FILL_START = 0.9;     // 이 지점부터 서서히 채워짐
+    const FILL_SMOOTH = 0.18;   // 채움 lerp 속도
+
+    // Melt (scroll-driven)
+    const MELT_START = 0.985;   // 이 지점부터 녹기 시작(스크롤 기반)
+    const MELT_SMOOTH = 0.10;   // meltProgress lerp 속도
+    const DRIP_COUNT = 11;      // 드립 개수
+    const DRIP_PICK_Y = 26;     // 하단 윤곽에서 앵커를 잡는 두께(px)
+    const DRIP_FIXED_RATIO = 0.38; // 상단 고정 길이 비율 (꾸덕함 핵심)
+
+    // (완성 판정은 이제 fill/melt가 스크롤 기반이라 필수는 아님)
+    const COMPLETE_THRESHOLD = 0.995;
+
+    let leftPts = [];
+    let rightPts = [];
+    let outlinePts = []; // left + reversed(right)로 만든 닫힌 폴리곤
+    let cusp;
+    let axisX = 0;
+
+    let targetP = 0;
+    let currentP = 0;
+
+    let fillProgress = 0;   // 0..1
+    let meltProgress = 0;   // 0..1
+
+    let scroller;
+
+    // Melt data
+    let drips = [];
+    let nextSeeds = [];     // 다음 애니메이션으로 넘길 seed(끝점들)
+
+    function setup(){
+      createCanvas(window.innerWidth, window.innerHeight);
+      pixelDensity(Math.min(2, window.devicePixelRatio || 1));
+      scroller = document.getElementById("scroller");
+
+      rebuildPaths();
+
+      scroller.addEventListener("scroll", () => {
+        targetP = calcScrollProgress(scroller);
+      }, { passive:true });
+
+      targetP = calcScrollProgress(scroller);
+      currentP = targetP;
+    }
+
+    function windowResized(){
+      resizeCanvas(window.innerWidth, window.innerHeight);
+      rebuildPaths();
+    }
+
+    function draw(){
+      background(BG);
+
+      // 스크롤 진행률
+      currentP = lerp(currentP, targetP, SMOOTHING);
+      const n = clampInt(Math.floor(currentP * leftPts.length), 0, leftPts.length);
+
+      // 약한 가이드(원하면 끄세요)
+      drawGuideOutline();
+
+      // --- Fill progress ---
+      const targetFill = clamp01((currentP - FILL_START) / (1 - FILL_START));
+      fillProgress = lerp(fillProgress, targetFill, FILL_SMOOTH);
+
+      // --- Melt progress (scroll-driven) ---
+      const targetMelt = clamp01((currentP - MELT_START) / (1 - MELT_START));
+      meltProgress = lerp(meltProgress, targetMelt, MELT_SMOOTH);
+
+      // melt 시작 시 드립 앵커 생성 (한 번만)
+      if (meltProgress > 0.001 && drips.length === 0){
+        drips = buildDripsFromBottom(outlinePts, DRIP_COUNT);
+      }
+      // rewind로 melt가 사라지면 드립도 초기화
+      if (meltProgress < 0.001 && drips.length > 0){
+        drips = [];
+        nextSeeds = [];
+      }
+
+      // 채움: 하트 + (melt 중이면) 드립 실루엣까지 포함해서 반반 색 채우기
+      if (fillProgress > 0.001){
+        fillHeartHalfAndHalfWithMelt(fillProgress, meltProgress);
+      }
+
+      // 외곽 좌/우 단색 드로잉(점+선)
+      drawPath(leftPts,  n, LEFT_COLOR);
+      drawPath(rightPts, n, RIGHT_COLOR);
+
+      // cusp 표시(선택)
+      noStroke();
+      fill(255,255,255,28);
+      circle(cusp.x, cusp.y, 7);
+
+      // (디버그) seed 점 보려면 켜기
+      // drawSeedsDebug();
+    }
+
+    // ===== Path building =====
+    function rebuildPaths(){
+      const rawRight = sampleHeart(0,  Math.PI, HALF_POINTS);
+      const rawLeft  = sampleHeart(0, -Math.PI, HALF_POINTS);
+
+      const fitted = fitToCanvas(rawLeft, rawRight);
+      leftPts = fitted.left;
+      rightPts = fitted.right;
+
+      cusp = leftPts[0];
+      axisX = cusp.x;
+
+      outlinePts = buildClosedOutline(leftPts, rightPts);
+
+      // 리사이즈 시 melt 리셋
+      drips = [];
+      nextSeeds = [];
+      meltProgress = 0;
+    }
+
+    function sampleHeart(t0, t1, n){
+      const pts = [];
+      for (let i=0;i<n;i++){
+        const t = map(i, 0, n-1, t0, t1);
+        const x = 16 * Math.pow(Math.sin(t), 3);
+        const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+        pts.push({x, y});
+      }
+      return pts;
+    }
+
+    function fitToCanvas(leftRaw, rightRaw){
+      let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+      const all = leftRaw.concat(rightRaw);
+      for (const p of all){
+        if (p.x<minX) minX=p.x;
+        if (p.x>maxX) maxX=p.x;
+        if (p.y<minY) minY=p.y;
+        if (p.y>maxY) maxY=p.y;
+      }
+      const w = maxX-minX;
+      const h = maxY-minY;
+
+      const pad = Math.min(width, height) * 0.16;
+      const sx = (width  - pad*2) / w;
+      const sy = (height - pad*2) / h;
+      const s = Math.min(sx, sy);
+
+      const cx = width * 0.5;
+      const cy = height * 0.52;
+
+      const centerX = (minX + maxX)/2;
+      const centerY = (minY + maxY)/2;
+
+      function toScreen(p){
+        return {
+          x: cx + (p.x - centerX) * s,
+          y: cy - (p.y - centerY) * s
+        };
+      }
+      return {
+        left: leftRaw.map(toScreen),
+        right: rightRaw.map(toScreen)
+      };
+    }
+
+    function buildClosedOutline(left, right){
+      const out = [];
+      for (const p of left) out.push(p);
+      for (let i = right.length - 1; i >= 0; i--) out.push(right[i]);
+      return out;
+    }
+
+    // ===== Melt: drip anchors from heart bottom =====
+    function buildDripsFromBottom(poly, count){
+      // 하트 폴리곤에서 가장 아래쪽(y 최대) 근처 점들을 후보로 사용
+      let maxY = -Infinity;
+      for (const p of poly) maxY = Math.max(maxY, p.y);
+      const thresh = maxY - DRIP_PICK_Y;
+
+      const candidates = poly.filter(p => p.y >= thresh);
+
+      // 너무 적으면 전체에서 y 상위 구간으로 보강
+      const pool = (candidates.length >= 8) ? candidates : poly.slice().sort((a,b)=>b.y-a.y).slice(0, 40);
+
+      // x가 너무 가까운 드립이 몰리지 않게 간단한 거리 제약
+      const out = [];
+      const minDx = 26;
+      let guard = 0;
+      while (out.length < count && guard++ < 2000){
+        const p = pool[Math.floor(Math.random()*pool.length)];
+        if (out.every(d => Math.abs(d.x - p.x) > minDx)){
+          out.push({
+            x: p.x,
+            y: p.y,
+            w: random(18, 34),        // 기본 폭
+            maxLen: random(120, 320), // 최대 길이(꾸덕하게 길게)
+            phase: random(TWO_PI),
+            speed: random(0.7, 1.15),
+            delay: random(0.00, 0.28) // 드립 시작 타이밍(지연)
+          });
+        }
+      }
+      return out;
+    }
+
+    // ===== Fill (half-and-half) + Melt silhouette =====
+    function fillHeartHalfAndHalfWithMelt(alpha = 1, melt = 0){
+      const ctx = drawingContext;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // 1) 하트 폴리곤 path
+      ctx.beginPath();
+      ctx.moveTo(outlinePts[0].x, outlinePts[0].y);
+      for (let i=1;i<outlinePts.length;i++){
+        ctx.lineTo(outlinePts[i].x, outlinePts[i].y);
+      }
+      ctx.closePath();
+
+      // 2) melt가 진행 중이면, 하트 path에 "드립 shape"를 붙인다
+      if (melt > 0.001 && drips.length > 0){
+        // 다음 애니메이션 seed(끝점) 갱신
+        nextSeeds = [];
+
+        for (const d of drips){
+          const t = dripLocalT(melt, d.delay);
+          if (t <= 0) continue;
+
+          const E = easeInOutQuart(t);          // 꾸덕함용 easing
+          const len = E * d.maxLen;
+
+          const fixedLen = d.maxLen * DRIP_FIXED_RATIO;
+          const stretchLen = Math.max(0, len - fixedLen);
+
+          const stretchRatio = d.maxLen > 0 ? (len / d.maxLen) : 0;
+
+          // 끝 물방울(head) 무게 증가: 길어질수록 더 큼
+          const headR = lerp(d.w * 0.55, d.w * 1.45, clamp01(stretchRatio));
+
+          // 목(neck) 가늘어짐
+          const neckW = lerp(d.w * 0.95, d.w * 0.32, clamp01(stretchRatio));
+
+          // 저항 떨림(초반에만, 길어질수록 감소)
+          const resist = 4.0 * Math.sin(frameCount * 0.045 * d.speed + d.phase) * (1 - clamp01(stretchRatio));
+          const x = d.x + resist;
+          const y0 = d.y;
+
+          // "상단은 버티고 하단만 늘어나는" 느낌을 주기 위해
+          // 실제 늘어나는 구간은 아래쪽(Stretch 영역)에만 강하게 적용
+          const yNeck = y0 + fixedLen * 0.70; // 목이 시작되는 지점(상단은 비교적 고정)
+          const yHead = y0 + fixedLen + stretchLen;
+
+          // 드립 shape를 path에 추가 (좌우 베지어 2개로 닫힌 형태)
+          ctx.moveTo(x - neckW/2, y0);
+
+          // 왼쪽 라인
+          ctx.bezierCurveTo(
+            x - neckW/2, yNeck,
+            x - headR,   yHead,
+            x,           yHead
+          );
+
+          // 오른쪽 라인
+          ctx.bezierCurveTo(
+            x + headR,   yHead,
+            x + neckW/2, yNeck,
+            x + neckW/2, y0
+          );
+
+          ctx.closePath();
+
+          // seed: 끝 물방울 중심(다음 애니메이션 입력)
+          nextSeeds.push({ x, y: yHead, r: headR, side: (x < axisX ? "L" : "R") });
+        }
+      } else {
+        nextSeeds = [];
+      }
+
+      // 3) clip
+      ctx.clip();
+
+      // 4) clip 내부를 좌/우 반반 채우기
+      ctx.fillStyle = LEFT_COLOR;
+      ctx.fillRect(0, 0, axisX, height);
+
+      ctx.fillStyle = RIGHT_COLOR;
+      ctx.fillRect(axisX, 0, width - axisX, height);
+
+      ctx.restore();
+    }
+
+    // melt 진행률(0..1)을 드립별 지연(delay)을 고려한 로컬 t로 변환
+    function dripLocalT(melt, delay){
+      if (melt <= delay) return 0;
+      return clamp01((melt - delay) / (1 - delay));
+    }
+
+    // ===== Drawing (dots & lines) =====
+    function drawPath(path, n, col){
+      if (n <= 1) return;
+
+      stroke(col);
+      strokeWeight(LINE_WEIGHT);
+      strokeCap(ROUND);
+
+      for (let i=1;i<n;i++){
+        const a = path[i-1], b = path[i];
+        line(a.x, a.y, b.x, b.y);
+      }
+
+      noStroke();
+      fill(col);
+      for (let i=0;i<n;i++){
+        const p = path[i];
+        circle(p.x, p.y, DOT_SIZE);
+
+        fill(255,255,255,34);
+        circle(p.x - 1.0, p.y - 1.0, DOT_SIZE * 0.45);
+        fill(col);
+      }
+    }
+
+    function drawGuideOutline(){
+      noFill();
+      stroke(255,255,255,14);
+      strokeWeight(1);
+
+      beginShape();
+      for (const p of leftPts) vertex(p.x, p.y);
+      for (let i=rightPts.length-1;i>=0;i--) vertex(rightPts[i].x, rightPts[i].y);
+      endShape(CLOSE);
+    }
+
+    // (옵션) seed 디버그
+    function drawSeedsDebug(){
+      noStroke();
+      for (const s of nextSeeds){
+        fill(s.side === "L" ? LEFT_COLOR : RIGHT_COLOR);
+        circle(s.x, s.y, 6);
+        fill(255,255,255,80);
+        circle(s.x, s.y, 2);
+      }
+    }
+
+    // ===== Easing / Utils =====
+    function easeInOutQuart(t){
+      return t < 0.5
+        ? 8*t*t*t*t
+        : 1 - Math.pow(-2*t + 2, 4)/2;
+    }
+
+    function calcScrollProgress(el){
+      const max = el.scrollHeight - el.clientHeight;
+      if (max <= 0) return 0;
+      return el.scrollTop / max;
+    }
+    function clampInt(v, a, b){ return Math.max(a, Math.min(b, v)); }
+    function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+  </script>
+</body>
+</html>

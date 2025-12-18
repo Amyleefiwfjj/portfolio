@@ -399,6 +399,7 @@
             function buildHelixPaths(progress) {
                 // progress: 0..1
                 const p = easeInOutCubic(progress);
+                const widthGrow = easeOutCubic(progress); // start thin, expand as animation progresses
 
                 // 시작점(버튼 줄)과 종료점(화면 중앙)
                 const { a, b } = getBtnAnchorsInViewport();
@@ -411,14 +412,16 @@
                 const y0 = (A0.y + B0.y) / 2;
 
                 // 시작: 버튼 크기와 비슷하게, 끝: 중앙까지 크게 확장
-                const length = lerp(40, 720, p);      // helix 길이
-                const turns = lerp(0.8, 3.6, p);      // 꼬임 횟수
-                const amp = lerp(4, 90, p);           // 좌우 진폭
-                const width = lerp(3, 48, p);         // 두 가닥 간격
-
-                // helix 진행 방향 벡터: 버튼->중앙 방향으로 맞추기
+                // helix direction: button -> screen center
                 const dx = C.x - x0;
                 const dy = C.y - y0;
+                const distanceToCenter = Math.hypot(dx, dy) || 1;
+
+                // lock length to center so the DNA end lands in the middle
+                const length = distanceToCenter;
+                const turns = lerp(0.8, 3.6, p);
+                const baseAmp = lerp(4, 90, p);
+                const amp = Math.min(baseAmp, length * 0.35) * widthGrow;
                 const ang = Math.atan2(dy, dx);
 
                 // 로컬 좌표계에서 helix 만든 다음, 회전/이동
@@ -444,9 +447,11 @@
                     const x = u * length;            // 진행축
                     const phase = u * Math.PI * 2 * turns;
 
-                    // 두 가닥: sin 위상 차 180도
-                    const yA = Math.sin(phase) * amp;
-                    const yB = Math.sin(phase + Math.PI) * amp;
+                    // taper to zero so the helix ends at center
+                    const taper = Math.pow(1 - u, 1.2);
+                    // sine offset for each strand (180deg out of phase)
+                    const yA = Math.sin(phase) * amp * taper;
+                    const yB = Math.sin(phase + Math.PI) * amp * taper;
 
                     const pA = localToWorld(x, yA);
                     const pB = localToWorld(x, yB);
