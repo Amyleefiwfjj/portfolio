@@ -4,23 +4,32 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Bio Image Bubble Slideshow</title>
+    <title>Bio Image Bubble Slideshow + Floating Menu</title>
     <style>
         :root {
             --bg: #0b0b0b;
             --fg: rgba(255, 255, 255, .88);
+            --muted: rgba(255, 255, 255, .65);
+            --card: #121212;
+            --stroke: rgba(255, 255, 255, .14);
+            --shadow: 0 24px 80px rgba(0, 0, 0, .55);
+            --shadow2: 0 12px 40px rgba(0, 0, 0, .45);
+            --radius: 22px;
         }
 
         html,
         body {
             height: 100%;
             margin: 0;
+            padding: 0;
             background: var(--bg);
             color: var(--fg);
             overflow: hidden;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            cursor: none;
         }
 
-        .stage {
+        #stage {
             position: relative;
             width: 100vw;
             height: 100vh;
@@ -73,12 +82,10 @@
             }
         }
 
-        /* 버블 */
         .bubble {
             position: absolute;
             border-radius: 999px;
             overflow: hidden;
-            /* fallback */
             clip-path: circle(50% at 50% 50%);
             box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
             background: rgba(255, 255, 255, .04);
@@ -94,7 +101,6 @@
             transform: scale(1.03);
         }
 
-        /* 내부 이미지 */
         .bubble img {
             position: absolute;
             inset: 0;
@@ -111,7 +117,6 @@
             opacity: 0;
         }
 
-        /* 작은 UI */
         .hud {
             position: fixed;
             left: 16px;
@@ -131,11 +136,379 @@
             border-radius: 6px;
             margin: 0 4px;
         }
+
+        .cursor-dot {
+            position: fixed;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: red;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+
+        .cat {
+            position: fixed;
+            width: 60px;
+            height: auto;
+            pointer-events: none;
+            transform-origin: center center;
+            z-index: 999;
+            user-select: none;
+        }
+
+        .floating-menu {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            cursor: grab;
+            touch-action: none;
+            z-index: 999999;
+            background: rgba(20, 20, 20, 0.75);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        .floating-menu:active {
+            cursor: grabbing;
+        }
+
+        .floating-menu .bar {
+            width: 18px;
+            height: 2px;
+            background: #fff;
+            border-radius: 2px;
+            display: block;
+            margin: 2.5px 0;
+        }
+
+        .dna-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 999997;
+            display: none;
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.12);
+        }
+
+        .dna-overlay.on {
+            display: block;
+        }
+
+        .dna-svg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .cards-panel {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) scale(0.92);
+            width: min(560px, calc(100vw - 40px));
+            height: min(380px, calc(100vh - 140px));
+            padding: 16px;
+            border-radius: 22px;
+            background: rgba(15, 15, 15, 0.78);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 220ms ease, transform 220ms ease;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            gap: 10px;
+        }
+
+        .cards-panel.on {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: auto;
+        }
+
+        .panel-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            user-select: none;
+        }
+
+        .panel-title {
+            line-height: 1.15;
+        }
+
+        .panel-title h2 {
+            margin: 0;
+            font-size: clamp(18px, 3.2vw, 26px);
+            letter-spacing: .3px;
+        }
+
+        .panel-title p {
+            margin: 6px 0 0;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .close-x {
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .16);
+            background: rgba(255, 255, 255, .06);
+            color: rgba(255, 255, 255, .92);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            transition: transform .15s ease, background .15s ease, border-color .15s ease;
+        }
+
+        .close-x:hover {
+            background: rgba(255, 255, 255, .10);
+            border-color: rgba(255, 255, 255, .22);
+        }
+
+        .close-x:active {
+            transform: scale(.96);
+        }
+
+        .close-x:focus {
+            outline: none;
+        }
+
+        .close-x:focus-visible {
+            outline: 2px solid rgba(255, 255, 255, .28);
+            outline-offset: 3px;
+        }
+
+        .panel-stage {
+            position: relative;
+            display: grid;
+            place-items: center;
+            isolation: isolate;
+            min-height: 0;
+        }
+
+        .deck {
+            position: relative;
+            width: min(520px, 92vw);
+            height: min(280px, 44vh);
+        }
+
+        .card {
+            position: absolute;
+            inset: 0;
+            margin: auto;
+            width: 100%;
+            height: 100%;
+            border-radius: var(--radius);
+            border: 1px solid var(--stroke);
+            background:
+                radial-gradient(1200px 520px at 10% 10%, rgba(255, 255, 255, .10), transparent 45%),
+                radial-gradient(900px 520px at 90% 20%, rgba(255, 255, 255, .06), transparent 50%),
+                var(--card);
+            box-shadow: var(--shadow2);
+            overflow: hidden;
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-start;
+            padding: 16px 16px 14px;
+            cursor: pointer;
+            transform: translateZ(0);
+            transition:
+                transform .45s cubic-bezier(.2, .8, .2, 1),
+                filter .35s ease,
+                opacity .35s ease,
+                box-shadow .45s cubic-bezier(.2, .8, .2, 1);
+            will-change: transform;
+        }
+
+        .card .card-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: brightness(.9);
+            z-index: 0;
+        }
+
+        .card .label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            z-index: 2;
+        }
+
+        .card .label .name {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: .3px;
+        }
+
+        .card .label .hint {
+            font-size: 12px;
+            color: rgba(255, 255, 255, .72);
+        }
+
+        .card::before {
+            content: attr(data-short);
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            font-weight: 800;
+            letter-spacing: .5px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, .92);
+            padding: 7px 9px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, .07);
+            border: 1px solid rgba(255, 255, 255, .12);
+            z-index: 2;
+            user-select: none;
+        }
+
+        .card::after {
+            content: "";
+            position: absolute;
+            inset: -40%;
+            background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, .08) 45%, transparent 55%);
+            transform: translateX(-30%) rotate(12deg);
+            opacity: .55;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .pos-left {
+            transform: translateX(-18%) rotate(-8deg) scale(.92);
+            opacity: .85;
+            filter: brightness(.85);
+            z-index: 1;
+        }
+
+        .pos-center {
+            transform: translateX(0) rotate(0deg) scale(1);
+            opacity: 1;
+            filter: brightness(1);
+            z-index: 3;
+            box-shadow: var(--shadow);
+        }
+
+        .pos-right {
+            transform: translateX(18%) rotate(8deg) scale(.92);
+            opacity: .85;
+            filter: brightness(.85);
+            z-index: 1;
+        }
+
+        .card:hover {
+            filter: brightness(1.05);
+        }
+
+        .pos-left:hover,
+        .pos-right:hover {
+            filter: brightness(.95);
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            user-select: none;
+        }
+
+        .btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, .16);
+            background: rgba(255, 255, 255, .06);
+            color: rgba(255, 255, 255, .92);
+            cursor: pointer;
+            display: grid;
+            place-items: center;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+            transition: transform .15s ease, background .15s ease, border-color .15s ease;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, .10);
+            border-color: rgba(255, 255, 255, .22);
+        }
+
+        .btn:active {
+            transform: scale(.96);
+        }
+
+        .btn:focus {
+            outline: none;
+        }
+
+        .btn:focus-visible {
+            outline: 2px solid rgba(255, 255, 255, .28);
+            outline-offset: 3px;
+        }
+
+        .panel-footer {
+            font-size: 12px;
+            color: rgba(255, 255, 255, .55);
+            text-align: center;
+            user-select: none;
+        }
+
+        .panel-footer kbd {
+            font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+            background: rgba(255, 255, 255, .08);
+            border: 1px solid rgba(255, 255, 255, .14);
+            padding: 2px 6px;
+            border-radius: 6px;
+            margin: 0 3px;
+            color: rgba(255, 255, 255, .75);
+        }
+
+        @media (max-width: 420px) {
+            .deck {
+                height: min(250px, 40vh);
+            }
+
+            .card .label .name {
+                font-size: 18px;
+            }
+
+            .cards-panel {
+                height: min(360px, calc(100vh - 140px));
+            }
+        }
     </style>
 </head>
 
 <body>
-    <div class="stage" id="stage"></div>
+    <div class="cursor-dot" id="cursor"></div>
+    <img src="asset/cat.png" class="cat" id="cat" alt="" />
+
+    <button id="floatingMenuBtn" class="floating-menu" aria-label="�޴�">
+        <span aria-hidden="true">
+            <span class="bar"></span>
+            <span class="bar"></span>
+            <span class="bar"></span>
+        </span>
+    </button>
+
+    <div id="stage"></div>
     <div class="guide">
         Interact with the memory bubbles<br />
     </div>
@@ -145,6 +518,39 @@
         <iframe id="readerFrame"></iframe>
     </div>
 
+    <div id="dnaOverlay" class="dna-overlay" aria-hidden="true">
+        <svg id="dnaSvg" class="dna-svg" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+            <path id="strandA" d="" fill="none" stroke="rgba(255,255,255,0.92)" stroke-width="4"
+                stroke-linecap="round" />
+            <path id="strandB" d="" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="4"
+                stroke-linecap="round" />
+            <g id="rungs" stroke="rgba(255,255,255,0.35)" stroke-width="3" stroke-linecap="round"></g>
+        </svg>
+
+        <div id="cardsPanel" class="cards-panel" role="dialog" aria-modal="true" aria-label="������Ʈ ī��">
+            <div class="panel-top">
+                <div class="panel-title" aria-live="polite">
+                    <h2 id="pageTitle">BIO</h2>
+                    <p>‹ ›로 센터 카드 변경 · 카드 전체 클릭으로 이동</p>
+                </div>
+                <button class="close-x" id="closePanel" type="button" aria-label="�ݱ�">&times;</button>
+            </div>
+
+            <div class="panel-stage">
+                <div class="deck" id="deck" aria-label="Project navigation cards"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn" id="prevBtn" type="button" aria-label="Previous">&#x2039;</button>
+                <button class="btn" id="nextBtn" type="button" aria-label="Next">&#x203A;</button>
+            </div>
+
+            <div class="panel-footer">
+                �̵�: <kbd>��</kbd> <kbd>��</kbd> �� ����: <kbd>Enter</kbd> �� �ݱ�: <kbd>Esc</kbd>
+            </div>
+        </div>
+    </div>
+
     <script>
         const TOTAL = 33;
 
@@ -152,8 +558,6 @@
             return `./asset/bio/${i + 1}.jpg`;
         });
 
-
-        // 2) 버블 설정
         const BUBBLES = 20;
         const stage = document.getElementById('stage');
         const reader = document.getElementById('reader');
@@ -165,20 +569,16 @@
             frame.src = "";
         });
 
-        // 3) 80장을 20개 버블에 분배 (라운드로빈)
         const buckets = Array.from({ length: BUBBLES }, () => []);
         imageUrls.forEach((url, idx) => buckets[idx % BUBBLES].push(url));
 
-        // 4) 크기 다양화 (px) + 반응형 스케일
         function sizeFor(i) {
-            // 작은/중간/큰 섞기
             const base = [120, 140, 160, 180, 210, 240, 280, 320];
             const pick = base[(i * 7) % base.length];
-            const scale = Math.min(innerWidth, innerHeight) / 900; // 화면에 따라 자동 스케일
+            const scale = Math.min(innerWidth, innerHeight) / 900;
             return Math.round(pick * Math.max(0.85, Math.min(1.25, scale)));
         }
 
-        // 5) 충돌이 심하지 않게 랜덤 배치(간단 회피)
         function placeBubbles(dimensions) {
             const placed = [];
             const padding = 12;
@@ -197,7 +597,6 @@
                 const r = dimensions[i] / 2;
                 let candidate = null;
 
-                // 최대 N번 시도
                 for (let tries = 0; tries < 600; tries++) {
                     const x = Math.random() * (W - dimensions[i]);
                     const y = Math.random() * (H - dimensions[i]);
@@ -210,7 +609,6 @@
                     if (ok) { candidate = c; break; }
                 }
 
-                // 실패하면 그냥 배치(조금 겹쳐도 허용)
                 if (!candidate) {
                     candidate = {
                         x: Math.random() * (W - dimensions[i]),
@@ -224,7 +622,6 @@
             return placed;
         }
 
-        // 6) Bubble state + creation
         const bubbleState = [];
 
         function createBubble(i) {
@@ -234,7 +631,6 @@
             el.style.width = d + 'px';
             el.style.height = d + 'px';
 
-            // Use two images for crossfade
             const imgA = document.createElement('img');
             const imgB = document.createElement('img');
             imgB.classList.add('next');
@@ -283,7 +679,7 @@
                 if (!dragging) return;
                 const dx = e.clientX - startX;
                 const dy = e.clientY - startY;
-                if (!moved && (dx * dx + dy * dy) > 16) moved = true; // 작은 흔들림은 클릭으로 처리
+                if (!moved && (dx * dx + dy * dy) > 16) moved = true;
                 el.style.left = (baseL + dx) + "px";
                 el.style.top = (baseT + dy) + "px";
             });
@@ -352,6 +748,501 @@
 
         window.addEventListener('resize', layout);
         layout();
+
+        const cursor = document.getElementById("cursor");
+        const cat = document.getElementById("cat");
+
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let catX = mouseX;
+        let catY = mouseY;
+
+        const offsetX = -15;
+        const offsetY = -15;
+        const followSpeed = 0.08;
+
+        window.addEventListener("mousemove", (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            cursor.style.left = mouseX + "px";
+            cursor.style.top = mouseY + "px";
+        });
+
+        function animateCat() {
+            catX += (mouseX - catX) * followSpeed;
+            catY += (mouseY - catY) * followSpeed;
+            cat.style.left = (catX + offsetX) + "px";
+            cat.style.top = (catY + offsetY) + "px";
+            requestAnimationFrame(animateCat);
+        }
+        animateCat();
+
+        const projects = [
+            { name: "ART_TECH", short: "AT", href: "./art_tech.html" },
+            { name: "BIO", short: "BIO", href: "./bio.html" },
+            { name: "BIOINFORM", short: "BI", href: "./bioinform.html" },
+        ];
+
+        const imageMap = {
+            "BIO": "./asset/1.jpg",
+            "ART_TECH": "./asset/2.jpg",
+            "BIOINFORM": "./asset/3.jpg",
+        };
+
+        const deck = document.getElementById("deck");
+        const pageTitle = document.getElementById("pageTitle");
+        const prevBtn = document.getElementById("prevBtn");
+        const nextBtn = document.getElementById("nextBtn");
+
+        let current = 1;
+        function mod(n, m) { return ((n % m) + m) % m; }
+
+        function renderDeck() {
+            deck.innerHTML = "";
+            const n = projects.length;
+
+            const leftIdx = mod(current - 1, n);
+            const centerIdx = mod(current, n);
+            const rightIdx = mod(current + 1, n);
+
+            const order = [
+                { idx: leftIdx, pos: "pos-left" },
+                { idx: centerIdx, pos: "pos-center" },
+                { idx: rightIdx, pos: "pos-right" }
+            ];
+
+            pageTitle.textContent = projects[centerIdx].name;
+
+            order.forEach(({ idx, pos }) => {
+                const p = projects[idx];
+                const card = document.createElement("div");
+                card.className = `card ${pos}`;
+                card.setAttribute("role", "button");
+                card.setAttribute("tabindex", pos === "pos-center" ? "0" : "-1");
+                card.setAttribute("aria-label", `${p.name} �������� �̵�`);
+                card.dataset.href = p.href;
+                card.dataset.short = p.short;
+
+                card.innerHTML = `
+          <img class="card-img" src="${imageMap[p.name] || ''}" alt="">
+          <div class="label">
+            <div class="name">${p.name}</div>
+            <div class="hint">Click to open</div>
+          </div>
+        `;
+
+                card.addEventListener("click", () => {
+                    window.location.href = p.href;
+                });
+
+                card.addEventListener("keydown", (e) => {
+                    if (pos !== "pos-center") return;
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        window.location.href = p.href;
+                    }
+                });
+
+                deck.appendChild(card);
+            });
+        }
+
+        function prev() { current = mod(current - 1, projects.length); renderDeck(); }
+        function next() { current = mod(current + 1, projects.length); renderDeck(); }
+
+        prevBtn.addEventListener("click", prev);
+        nextBtn.addEventListener("click", next);
+
+        (function () {
+            const btn = document.getElementById('floatingMenuBtn');
+
+            const MARGIN = 10;
+            const CORNER_SNAP_RADIUS = 120;
+            const CORNER_BIAS = 24;
+            const USE_STORAGE = true;
+            const STORAGE_KEY = 'floating_menu_pos_v1';
+
+            let dragging = false;
+            let pointerId = null;
+            let startX = 0, startY = 0;
+            let btnStartLeft = 0, btnStartTop = 0;
+            let moved = false;
+
+            function defaultPosition() {
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                const rect = btn.getBoundingClientRect();
+                const left = vw - rect.width - MARGIN;
+                const top = vh - rect.height - MARGIN - 40;
+                setPos(clamp(left, MARGIN, vw - rect.width - MARGIN),
+                    clamp(top, MARGIN, vh - rect.height - MARGIN), false);
+                snapToBest(true);
+            }
+
+            function loadPosition() {
+                if (!USE_STORAGE) return false;
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (!raw) return false;
+                    const { left, top } = JSON.parse(raw);
+                    if (typeof left !== 'number' || typeof top !== 'number') return false;
+                    setPos(left, top, false);
+                    clampIntoViewport();
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+
+            function savePosition() {
+                if (!USE_STORAGE) return;
+                const left = parseFloat(btn.style.left) || 0;
+                const top = parseFloat(btn.style.top) || 0;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({ left, top }));
+            }
+
+            function setPos(left, top, withTransition = false) {
+                btn.style.transition = withTransition ? 'left 180ms ease, top 180ms ease' : 'none';
+                btn.style.left = `${left}px`;
+                btn.style.top = `${top}px`;
+            }
+
+            function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+            function clampIntoViewport() {
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                const rect = btn.getBoundingClientRect();
+                const left = clamp(parseFloat(btn.style.left) || rect.left, MARGIN, vw - rect.width - MARGIN);
+                const top = clamp(parseFloat(btn.style.top) || rect.top, MARGIN, vh - rect.height - MARGIN);
+                setPos(left, top, false);
+            }
+
+            function snapToBest(immediate = false) {
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                const rect = btn.getBoundingClientRect();
+
+                const left = parseFloat(btn.style.left) || rect.left;
+                const top = parseFloat(btn.style.top) || rect.top;
+
+                const w = rect.width;
+                const h = rect.height;
+
+                const cx = left + w / 2;
+                const cy = top + h / 2;
+
+                const corners = [
+                    { name: 'tl', x: MARGIN, y: MARGIN },
+                    { name: 'tr', x: vw - w - MARGIN, y: MARGIN },
+                    { name: 'bl', x: MARGIN, y: vh - h - MARGIN },
+                    { name: 'br', x: vw - w - MARGIN, y: vh - h - MARGIN },
+                ];
+
+                const edges = [
+                    { name: 'left', x: MARGIN, y: clamp(top, MARGIN, vh - h - MARGIN) },
+                    { name: 'right', x: vw - w - MARGIN, y: clamp(top, MARGIN, vh - h - MARGIN) },
+                    { name: 'top', x: clamp(left, MARGIN, vw - w - MARGIN), y: MARGIN },
+                    { name: 'bottom', x: clamp(left, MARGIN, vw - w - MARGIN), y: vh - h - MARGIN },
+                ];
+
+                const dist2 = (ax, ay, bx, by) => {
+                    const dx = ax - bx, dy = ay - by;
+                    return dx * dx + dy * dy;
+                };
+
+                let bestCorner = null;
+                for (const c of corners) {
+                    const ccx = c.x + w / 2, ccy = c.y + h / 2;
+                    const d2 = dist2(cx, cy, ccx, ccy);
+                    if (!bestCorner || d2 < bestCorner.d2) bestCorner = { ...c, d2 };
+                }
+
+                let bestEdge = null;
+                for (const e of edges) {
+                    const ecx = e.x + w / 2, ecy = e.y + h / 2;
+                    const d2 = dist2(cx, cy, ecx, ecy);
+                    if (!bestEdge || d2 < bestEdge.d2) bestEdge = { ...e, d2 };
+                }
+
+                const cornerDist = Math.sqrt(bestCorner.d2);
+                const edgeDist = Math.sqrt(bestEdge.d2);
+
+                const chooseCorner =
+                    (cornerDist <= CORNER_SNAP_RADIUS) ||
+                    (cornerDist <= edgeDist + CORNER_BIAS);
+
+                const target = chooseCorner ? bestCorner : bestEdge;
+
+                const withTransition = !immediate;
+                setPos(target.x, target.y, withTransition);
+                if (!immediate) setTimeout(savePosition, 220);
+                else savePosition();
+            }
+
+            btn.addEventListener('pointerdown', (e) => {
+                dragging = true;
+                moved = false;
+                btn.dataset.wasDragged = 'false';
+                pointerId = e.pointerId;
+                btn.setPointerCapture(pointerId);
+
+                const rect = btn.getBoundingClientRect();
+                startX = e.clientX;
+                startY = e.clientY;
+                btnStartLeft = rect.left;
+                btnStartTop = rect.top;
+            });
+
+            btn.addEventListener('pointermove', (e) => {
+                if (!dragging || e.pointerId !== pointerId) return;
+
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+                if (moved) btn.dataset.wasDragged = 'true';
+
+                const rect = btn.getBoundingClientRect();
+                const w = rect.width, h = rect.height;
+
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+
+                const nextLeft = clamp(btnStartLeft + dx, MARGIN, vw - w - MARGIN);
+                const nextTop = clamp(btnStartTop + dy, MARGIN, vh - h - MARGIN);
+
+                setPos(nextLeft, nextTop, false);
+            });
+
+            btn.addEventListener('pointerup', (e) => {
+                if (!dragging || e.pointerId !== pointerId) return;
+                dragging = false;
+                snapToBest(false);
+                setTimeout(() => {
+                    moved = false;
+                    btn.dataset.wasDragged = 'false';
+                }, 0);
+            });
+
+            btn.addEventListener('pointercancel', () => {
+                dragging = false;
+                snapToBest(false);
+            });
+
+            window.addEventListener('resize', () => {
+                clampIntoViewport();
+                snapToBest(true);
+            });
+
+            if (!loadPosition()) defaultPosition();
+            else snapToBest(true);
+        })();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('floatingMenuBtn');
+            const overlay = document.getElementById('dnaOverlay');
+            const strandA = document.getElementById('strandA');
+            const strandB = document.getElementById('strandB');
+            const rungsG = document.getElementById('rungs');
+            const cardsPanel = document.getElementById('cardsPanel');
+            const closePanel = document.getElementById('closePanel');
+
+            let isOpen = false;
+            let animReq = null;
+            let t0 = 0;
+
+            const DURATION = 300;
+            const RUNG_COUNT = 18;
+            const START_OFFSET_Y1 = -6;
+            const START_OFFSET_Y3 = +6;
+
+            function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+            function easeInOutCubic(x) {
+                return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+            }
+            function lerp(a, b, t) { return a + (b - a) * t; }
+
+            function getBtnAnchorsInViewport() {
+                const r = btn.getBoundingClientRect();
+                const cx = r.left + r.width / 2;
+                const cy = r.top + r.height / 2;
+                return {
+                    a: { x: cx, y: cy + START_OFFSET_Y1 },
+                    b: { x: cx, y: cy + START_OFFSET_Y3 }
+                };
+            }
+
+            function vpToSvg(pt) {
+                const vw = window.innerWidth;
+                const vh = window.innerHeight;
+                return { x: (pt.x / vw) * 1000, y: (pt.y / vh) * 1000 };
+            }
+
+            function buildHelixPaths(progress) {
+                const p = easeInOutCubic(progress);
+                const widthGrow = easeOutCubic(progress);
+
+                const { a, b } = getBtnAnchorsInViewport();
+                const A0 = vpToSvg(a);
+                const B0 = vpToSvg(b);
+
+                const C = { x: 500, y: 500 };
+                const x0 = A0.x;
+                const y0 = (A0.y + B0.y) / 2;
+
+                const dx = C.x - x0;
+                const dy = C.y - y0;
+                const distanceToCenter = Math.hypot(dx, dy) || 1;
+
+                const length = distanceToCenter;
+                const turns = lerp(0.8, 3.6, p);
+                const baseAmp = lerp(4, 90, p);
+                const amp = Math.min(baseAmp, length * 0.35) * widthGrow;
+                const ang = Math.atan2(dy, dx);
+
+                const N = 90;
+                let dA = "";
+                let dB = "";
+
+                rungsG.innerHTML = "";
+                const rungCount = Math.round(lerp(3, RUNG_COUNT, p));
+
+                function localToWorld(x, y) {
+                    const cos = Math.cos(ang);
+                    const sin = Math.sin(ang);
+                    return { x: x0 + (x * cos - y * sin), y: y0 + (x * sin + y * cos) };
+                }
+
+                for (let i = 0; i < N; i++) {
+                    const u = i / (N - 1);
+                    const x = u * length;
+                    const phase = u * Math.PI * 2 * turns;
+
+                    const taper = Math.pow(1 - u, 1.2);
+                    const yA = Math.sin(phase) * amp * taper;
+                    const yB = Math.sin(phase + Math.PI) * amp * taper;
+
+                    const pA = localToWorld(x, yA);
+                    const pB = localToWorld(x, yB);
+
+                    dA += (i === 0 ? `M ${pA.x.toFixed(2)} ${pA.y.toFixed(2)}` : ` L ${pA.x.toFixed(2)} ${pA.y.toFixed(2)}`);
+                    dB += (i === 0 ? `M ${pB.x.toFixed(2)} ${pB.y.toFixed(2)}` : ` L ${pB.x.toFixed(2)} ${pB.y.toFixed(2)}`);
+
+                    if (i > 0 && i < N - 1) {
+                        const rungEvery = Math.floor((N - 2) / rungCount);
+                        if (rungEvery > 0 && (i % rungEvery === 0)) {
+                            const rung = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                            rung.setAttribute("x1", pA.x.toFixed(2));
+                            rung.setAttribute("y1", pA.y.toFixed(2));
+                            rung.setAttribute("x2", pB.x.toFixed(2));
+                            rung.setAttribute("y2", pB.y.toFixed(2));
+                            rung.style.opacity = String(lerp(0.0, 0.95, u) * lerp(0.55, 1.0, p));
+                            rungsG.appendChild(rung);
+                        }
+                    }
+                }
+
+                strandA.setAttribute("d", dA);
+                strandB.setAttribute("d", dB);
+
+                const swA = lerp(3.0, 5.2, p);
+                const swB = lerp(3.0, 4.6, p);
+                strandA.setAttribute("stroke-width", swA.toFixed(2));
+                strandB.setAttribute("stroke-width", swB.toFixed(2));
+            }
+
+            function openMenu() {
+                if (isOpen) return;
+                isOpen = true;
+                globalPaused = true;
+
+                overlay.classList.add('on');
+                overlay.setAttribute('aria-hidden', 'false');
+
+                renderDeck();
+
+                cancelAnimationFrame(animReq);
+                t0 = performance.now();
+
+                const tick = (now) => {
+                    const elapsed = now - t0;
+                    const raw = Math.min(1, elapsed / DURATION);
+                    const p = easeOutCubic(raw);
+
+                    buildHelixPaths(p);
+
+                    if (raw < 1) {
+                        animReq = requestAnimationFrame(tick);
+                    } else {
+                        cardsPanel.classList.add('on');
+                        const focusEl = deck.querySelector('.pos-center[tabindex="0"]');
+                        if (focusEl) focusEl.focus({ preventScroll: true });
+                    }
+                };
+                animReq = requestAnimationFrame(tick);
+            }
+
+            function closeMenu() {
+                if (!isOpen) return;
+                isOpen = false;
+
+                cardsPanel.classList.remove('on');
+
+                strandA.style.transition = 'opacity 180ms ease';
+                strandB.style.transition = 'opacity 180ms ease';
+                rungsG.style.transition = 'opacity 180ms ease';
+                strandA.style.opacity = '0';
+                strandB.style.opacity = '0';
+                rungsG.style.opacity = '0';
+
+                setTimeout(() => {
+                    cancelAnimationFrame(animReq);
+
+                    strandA.style.transition = '';
+                    strandB.style.transition = '';
+                    rungsG.style.transition = '';
+                    strandA.style.opacity = '';
+                    strandB.style.opacity = '';
+                    rungsG.style.opacity = '';
+                    rungsG.innerHTML = '';
+                    strandA.setAttribute('d', '');
+                    strandB.setAttribute('d', '');
+
+                    overlay.classList.remove('on');
+                    overlay.setAttribute('aria-hidden', 'true');
+                    globalPaused = false;
+                }, 200);
+            }
+
+            btn.addEventListener('click', () => {
+                if (btn.dataset.wasDragged === 'true') {
+                    btn.dataset.wasDragged = 'false';
+                    return;
+                }
+                if (!isOpen) openMenu();
+                else closeMenu();
+            });
+
+            closePanel.addEventListener('click', closeMenu);
+
+            overlay.addEventListener('pointerdown', (e) => {
+                if (e.target.closest && e.target.closest('#cardsPanel')) return;
+                closeMenu();
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (!isOpen) return;
+                if (e.key === 'ArrowLeft') prev();
+                if (e.key === 'ArrowRight') next();
+                if (e.key === 'Escape') closeMenu();
+            });
+
+            window.addEventListener('resize', () => {
+                if (!isOpen) return;
+                buildHelixPaths(1);
+            });
+        });
     </script>
 </body>
 
