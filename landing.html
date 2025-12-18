@@ -3,669 +3,700 @@
 
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Scroll Heart - Split Fill + Viscous Melt</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Project Cards</title>
+
   <style>
+    :root {
+      --bg: #0b0b0b;
+      --fg: rgba(255, 255, 255, .9);
+      --muted: rgba(255, 255, 255, .65);
+      --card: #121212;
+      --stroke: rgba(255, 255, 255, .14);
+      --shadow: 0 24px 80px rgba(0, 0, 0, .55);
+      --shadow2: 0 12px 40px rgba(0, 0, 0, .45);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     html,
     body {
-      margin: 0;
-      padding: 0;
       height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
       overflow: hidden;
-      background: #0b0b0b;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     }
 
-    canvas {
-      display: block;
-    }
-
-    .scroll-area {
+    /* ===== Intro Overlay (p5 text) ===== */
+    .intro {
       position: fixed;
       inset: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
-      -webkit-overflow-scrolling: touch;
-      overscroll-behavior: contain;
+      z-index: 9999;
+      background: radial-gradient(1200px 800px at 50% 35%, rgba(255, 255, 255, .06), transparent 55%),
+        #080808;
+      display: grid;
+      place-items: center;
+      opacity: 1;
+      transition: opacity 420ms ease;
     }
 
-    .spacer {
-      height: 500vh;
-      min-height: 2200px;
-    }
-
-    .hint {
-      position: fixed;
-      left: 16px;
-      bottom: 16px;
-      color: rgba(255, 255, 255, 0.7);
-      font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      z-index: 10;
-      user-select: none;
+    .intro.hide {
+      opacity: 0;
       pointer-events: none;
     }
-    .loader-wrap {
-      position: fixed;
-      inset: 0;
-      display: flex;
+
+    .intro-ui {
+      position: absolute;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      user-select: none;
+      color: rgba(255, 255, 255, .7);
+      font-size: 12px;
+      line-height: 1.45;
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 999px;
+      background: rgba(0, 0, 0, .35);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .intro-ui kbd {
+      font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .14);
+      padding: 2px 6px;
+      border-radius: 6px;
+      margin: 0 3px;
+      color: rgba(255, 255, 255, .75);
+    }
+
+    #introCanvasHost {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* ===== Main UI (cards) ===== */
+    .wrap {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto auto;
       align-items: center;
-      justify-content: center;
-      background: rgba(11, 11, 11, 0.72);
-      z-index: 20;
-      backdrop-filter: blur(6px);
-      transition: opacity 0.4s ease;
+      justify-items: center;
+      padding: 28px 18px;
     }
-    .loader {
-      width: 400px;
-      height: 200px;
-      border-radius: 500px 500px 0 0;
+
+    .title {
+      text-align: center;
+      line-height: 1.15;
+      user-select: none;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 46px);
+      letter-spacing: .4px;
+    }
+
+    .title p {
+      margin: 10px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .stage {
       position: relative;
-      overflow: hidden;
+      width: min(760px, 96vw);
+      height: min(520px, 66vh);
+      display: grid;
+      place-items: center;
+      isolation: isolate;
     }
-    .loader::before {
+
+    .deck {
+      position: relative;
+      width: min(520px, 92vw);
+      height: min(360px, 52vh);
+    }
+
+    .card {
+      position: absolute;
+      inset: 0;
+      margin: auto;
+      width: 100%;
+      height: 100%;
+      border-radius: var(--radius);
+      border: 1px solid var(--stroke);
+      background:
+        radial-gradient(1200px 520px at 10% 10%, rgba(255, 255, 255, .10), transparent 45%),
+        radial-gradient(900px 520px at 90% 20%, rgba(255, 255, 255, .06), transparent 50%),
+        var(--card);
+      box-shadow: var(--shadow2);
+      overflow: hidden;
+
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-start;
+
+      padding: 18px 18px 16px;
+      cursor: pointer;
+
+      transform: translateZ(0);
+      transition:
+        transform .45s cubic-bezier(.2, .8, .2, 1),
+        filter .35s ease,
+        opacity .35s ease,
+        box-shadow .45s cubic-bezier(.2, .8, .2, 1);
+      will-change: transform;
+    }
+
+    .card .card-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: brightness(.9);
+      z-index: 0;
+    }
+
+    .card .label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 2;
+    }
+
+    .card .label .name {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    .card .label .hint {
+      font-size: 12px;
+      color: rgba(255, 255, 255, .72);
+    }
+
+    .card::before {
+      content: attr(data-short);
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      font-weight: 800;
+      letter-spacing: .5px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, .9);
+      padding: 8px 10px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid rgba(255, 255, 255, .12);
+      z-index: 2;
+      user-select: none;
+    }
+
+    .card::after {
       content: "";
       position: absolute;
-      inset: 0 0 -100%;
-      background:
-        radial-gradient(farthest-side, #ffd738 80%, #0000) left 70% top 20%/75px 75px,
-        radial-gradient(farthest-side, #020308 92%, #0000) left 65% bottom 19%/60px 60px,
-        radial-gradient(farthest-side, #ecfefe 92%, #0000) left 70% bottom 20%/75px 75px,
-        linear-gradient(#9eddfe 50%, #020308 0);
-      background-repeat: no-repeat;
-      animation: l5 2s infinite;
+      inset: -40%;
+      background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, .08) 45%, transparent 55%);
+      transform: translateX(-30%) rotate(12deg);
+      opacity: .55;
+      pointer-events: none;
+      z-index: 1;
     }
-    @keyframes l5 {
-      0%,
-      20% {
-        transform: rotate(0)
+
+    .pos-left {
+      transform: translateX(-18%) rotate(-8deg) scale(.92);
+      opacity: .85;
+      filter: brightness(.85);
+      z-index: 1;
+    }
+
+    .pos-center {
+      transform: translateX(0) rotate(0deg) scale(1);
+      opacity: 1;
+      filter: brightness(1);
+      z-index: 3;
+      box-shadow: var(--shadow);
+    }
+
+    .pos-right {
+      transform: translateX(18%) rotate(8deg) scale(.92);
+      opacity: .85;
+      filter: brightness(.85);
+      z-index: 1;
+    }
+
+    .card:hover {
+      filter: brightness(1.05);
+    }
+
+    .pos-left:hover,
+    .pos-right:hover {
+      filter: brightness(.95);
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      user-select: none;
+      margin-top: 8px;
+    }
+
+    .btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, .16);
+      background: rgba(255, 255, 255, .06);
+      color: rgba(255, 255, 255, .9);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, .10);
+      border-color: rgba(255, 255, 255, .22);
+    }
+
+    .btn:active {
+      transform: scale(.96);
+    }
+
+    .btn:focus {
+      outline: none;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid rgba(255, 255, 255, .28);
+      outline-offset: 3px;
+    }
+
+    .footer {
+      font-size: 12px;
+      color: rgba(255, 255, 255, .55);
+      text-align: center;
+      line-height: 1.45;
+      user-select: none;
+      margin-top: 10px;
+    }
+
+    .footer kbd {
+      font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .14);
+      padding: 2px 6px;
+      border-radius: 6px;
+      margin: 0 3px;
+      color: rgba(255, 255, 255, .75);
+    }
+
+    @media (max-width:420px) {
+      .card .label .name {
+        font-size: 18px;
       }
-      40%,
-      60% {
-        transform: rotate(.5turn)
-      }
-      80%,
-      100% {
-        transform: rotate(1turn)
+
+      .deck {
+        height: min(320px, 50vh);
       }
     }
   </style>
 </head>
 
 <body>
-  <div class="loader-wrap" id="loader" aria-label="Loading">
-    <div class="loader"></div>
+
+  <!-- ===== Intro Overlay ===== -->
+  <div class="intro" id="intro">
+    <div id="introCanvasHost" aria-label="intro text canvas"></div>
+    <div class="intro-ui">
+      마우스를 가까이 대면 글자가 피합니다 · 종료: <kbd>Click</kbd> 또는 <kbd>Enter</kbd>
+    </div>
   </div>
-  <div class="scroll-area" id="scroller">
-    <div class="spacer"></div>
+
+  <!-- ===== Main UI ===== -->
+  <div class="wrap" id="mainUI" aria-hidden="false">
+    <div class="title" aria-live="polite">
+      <h1 id="pageTitle">BIO</h1>
+      <p>카드를 클릭하면 해당 페이지로 이동합니다.</p>
+    </div>
+
+    <div class="stage">
+      <div class="deck" id="deck" aria-label="Project navigation cards"></div>
+    </div>
+
+    <div class="controls">
+      <button class="btn" id="prevBtn" type="button" aria-label="Previous">&#x2039;</button>
+      <button class="btn" id="nextBtn" type="button" aria-label="Next">&#x203A;</button>
+    </div>
+
+    <div class="footer">
+      키보드도 지원: <kbd>←</kbd> <kbd>→</kbd> / 중앙 카드 클릭
+    </div>
   </div>
-  <div class="hint">Scroll ↓ draw/fill/melt. Scroll ↑ rewind.</div>
 
   <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+
   <script>
-    // ===== Config =====
-    const LEFT_COLOR = "#81d9cc";
-    const RIGHT_COLOR = "#f89a92";
-    const BG = "#0b0b0b";
+    /* =========================
+       1) Card UI (your code)
+    ========================== */
+    const projects = [
+      { name: "ART_TECH", short: "AT", href: "./art_tech.html" },
+      { name: "BIO", short: "BIO", href: "./bio.html" },
+      { name: "BIOINFORM", short: "BI", href: "./bioinform.html" },
+    ];
 
-    const HALF_POINTS = 520;
-    const DOT_SIZE = 4.2;
-    const LINE_WEIGHT = 2.2;
-    const SMOOTHING = 0.12;
+    const imageMap = {
+      "BIO": "./asset/1.jpg",
+      "ART_TECH": "./asset/2.jpg",
+      "BIOINFORM": "./asset/3.jpg",
+    };
 
-    // Fill
-    const FILL_START = 0.9;     // 이 지점부터 서서히 채워짐
-    const FILL_SMOOTH = 0.18;   // 채움 lerp 속도
-    const FILL_BLUR_MAX = 12; // heart fill blur strength (px)
+    const deck = document.getElementById("deck");
+    const pageTitle = document.getElementById("pageTitle");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
 
-    // Melt (scroll-driven)
-    const MELT_START = 0.985;   // 이 지점부터 녹기 시작(스크롤 기반)
-    const MELT_SMOOTH = 0.10;   // meltProgress lerp 속도
-    const DRIP_COUNT = 11;      // 드립 개수
-    const MIN_DRIPS = 3;        // ?? ?? ?? ??
-    const DRIP_PICK_Y = 26;     // 하단 윤곽에서 앵커를 잡는 두께(px)
-    const DRIP_FIXED_RATIO = 0.38; // 상단 고정 길이 비율 (꾸덕함 핵심)
-    const CAT_SIZE = 60;
-    const DRIP_FALL_SPACE = 360; // 드립이 밑으로 떨어질 공간 확보
-    const AUTO_SCROLL_RATIO = 0.9; // melt 시작 시 자동 스크롤할 비율(1에 가까울수록 더 아래)
+    let current = 1; // 시작: BIO(가운데)
+    function mod(n, m) { return ((n % m) + m) % m; }
 
-    // (완성 판정은 이제 fill/melt가 스크롤 기반이라 필수는 아님)
-    const COMPLETE_THRESHOLD = 0.995;
+    function renderCards() {
+      deck.innerHTML = "";
 
-    let leftPts = [];
-    let rightPts = [];
-    let outlinePts = []; // left + reversed(right)로 만든 닫힌 폴리곤
-    let cusp;
-    let axisX = 0;
+      const n = projects.length;
+      const leftIdx = mod(current - 1, n);
+      const centerIdx = mod(current, n);
+      const rightIdx = mod(current + 1, n);
 
-    let targetP = 0;
-    let currentP = 0;
+      const order = [
+        { idx: leftIdx, pos: "pos-left" },
+        { idx: centerIdx, pos: "pos-center" },
+        { idx: rightIdx, pos: "pos-right" }
+      ];
 
-    let fillProgress = 0;   // 0..1
-    let meltProgress = 0;   // 0..1
+      pageTitle.textContent = projects[centerIdx].name;
 
-    let loaderEl;
-    let loaderHidden = false;
-    let scroller;
-    let catImg;
-    let autoScrollTriggered = false;
-    let scrollAnim = null;
-    let meltPeak = 0;
+      order.forEach(({ idx, pos }) => {
+        const p = projects[idx];
 
-    // Melt data
-    let drips = [];
-    let nextSeeds = [];     // 다음 애니메이션으로 넘길 seed(끝점들)
-    let vehicle;
+        const card = document.createElement("div");
+        card.className = `card ${pos}`;
+        card.setAttribute("role", "button");
+        card.setAttribute("tabindex", pos === "pos-center" ? "0" : "-1");
+        card.setAttribute("aria-label", `${p.name} 페이지로 이동`);
+        card.dataset.href = p.href;
+        card.dataset.short = p.short;
 
-    function preload() {
-      catImg = loadImage("asset/cat.png");
+        card.innerHTML = `
+          <img class="card-img" src="${imageMap[p.name] || ''}" alt="">
+          <div class="label">
+            <div class="name">${p.name}</div>
+            <div class="hint">Click to open</div>
+          </div>
+        `;
+
+        card.addEventListener("click", () => {
+          window.location.href = p.href;
+        });
+
+        card.addEventListener("keydown", (e) => {
+          if (pos !== "pos-center") return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            window.location.href = p.href;
+          }
+        });
+
+        deck.appendChild(card);
+      });
     }
 
-    function setup() {
-      createCanvas(window.innerWidth, window.innerHeight);
-      pixelDensity(Math.min(2, window.devicePixelRatio || 1));
-      scroller = document.getElementById("scroller");
-      loaderEl = document.getElementById("loader");
+    function prev() { current = mod(current - 1, projects.length); renderCards(); }
+    function next() { current = mod(current + 1, projects.length); renderCards(); }
 
-      rebuildPaths();
-      vehicle = new Vehicle(width * 0.5, height * 0.35);
+    prevBtn.addEventListener("click", prev);
+    nextBtn.addEventListener("click", next);
 
-      setTimeout(hideLoader, 1200);
+    window.addEventListener("keydown", (e) => {
+      // 인트로 종료 키는 아래에서 처리
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    });
 
-      scroller.addEventListener("scroll", () => {
-        targetP = calcScrollProgress(scroller);
-        if (targetP < MELT_START - 0.1) resetAutoScroll();
-        if (targetP < 0.05) meltPeak = 0; // 맨 위로 올리면 다시 초기화
-      }, { passive: true });
+    renderCards();
 
-      targetP = calcScrollProgress(scroller);
-      currentP = targetP;
-    }
 
-    function hideLoader() {
-      if (!loaderEl || loaderHidden) return;
-      loaderHidden = true;
-      loaderEl.style.opacity = "0";
-      loaderEl.style.pointerEvents = "none";
+    /* =========================
+       2) Intro Text (Vehicle)
+       - uses your logic: arrive + flee
+    ========================== */
+
+    const introEl = document.getElementById("intro");
+    let introDone = false;
+
+    function endIntro() {
+      if (introDone) return;
+      introDone = true;
+      introEl.classList.add("hide");
+      // 애니메이션 끝나면 DOM에서 제거해서 클릭/키보드 완전 해방
       setTimeout(() => {
-        loaderEl.style.display = "none";
-      }, 400);
+        introEl.style.display = "none";
+      }, 460);
     }
 
-    function windowResized() {
-      resizeCanvas(window.innerWidth, window.innerHeight);
-      rebuildPaths();
+    // Enter로 종료
+    window.addEventListener("keydown", (e) => {
+      if (!introDone && (e.key === "Enter")) endIntro();
+    });
+
+    // 클릭으로 종료
+    introEl.addEventListener("pointerdown", () => endIntro());
+
+    // ===== Intro Vehicle (soft start, slower, near-target spawn) =====
+    function Vehicle(p, x, y, startX, startY) {
+      this.p = p;
+
+      // start near the target so points settle in place instead of swarming
+      this.pos = p.createVector(startX, startY);
+      this.target = p.createVector(x, y);
+
+      this.vel = p.createVector(0, 0);
+      this.acc = p.createVector(0, 0);
+
+      this.r = 6;
+
+      // gentler speed/force
+      this.maxspeed = 4.2;
+      this.maxforce = 0.35;
+
+      // initial snap interpolation to make first settle smoother
+      this.snap = 1.0;
+      this.snapDecay = 0.06;
     }
 
-    function draw() {
-      background(BG);
+    Vehicle.prototype.behaviors = function () {
+      var p = this.p;
 
-      // 스크롤 진행률
-      currentP = lerp(currentP, targetP, SMOOTHING);
-      const n = clampInt(Math.floor(currentP * leftPts.length), 0, leftPts.length);
+      var arrive = this.arrive(this.target);
+      var mouse = p.createVector(p.mouseX, p.mouseY);
+      var flee = this.flee(mouse);
 
-      // 약한 가이드(원하면 끄세요)
-      drawGuideOutline();
+      arrive.mult(1.0);
+      flee.mult(1.6);
 
-      // --- Fill progress ---
-      const targetFill = clamp01((currentP - FILL_START) / (1 - FILL_START));
-      fillProgress = lerp(fillProgress, targetFill, FILL_SMOOTH);
+      this.applyForce(arrive);
+      this.applyForce(flee);
+    };
 
-      // --- Melt progress (scroll-driven) ---
-      const targetMelt = clamp01((currentP - MELT_START) / (1 - MELT_START));
-      meltPeak = Math.max(meltPeak, targetMelt); // 내려가도 멜팅은 역재생되지 않도록 최대값 유지
-      meltProgress = lerp(meltProgress, meltPeak, MELT_SMOOTH);
-      maybeAutoScroll(targetMelt);
+    Vehicle.prototype.applyForce = function (f) { this.acc.add(f); };
 
-      // melt 시작 시 드립 앵커 생성 (한 번만)
-      if (meltProgress > 0.001 && drips.length === 0) {
-        drips = buildDripsFromBottom(outlinePts, DRIP_COUNT);
-      }
-      // rewind로 melt가 사라지면 드립도 초기화
-      if (meltProgress < 0.001 && drips.length > 0) {
-        drips = [];
-        nextSeeds = [];
+    Vehicle.prototype.update = function () {
+      // softly pull toward target for first few frames
+      if (this.snap > 0) {
+        const t = this.p.constrain(1 - this.snap, 0, 1);
+        this.pos.x = this.p.lerp(this.pos.x, this.target.x, 0.12 + 0.18 * t);
+        this.pos.y = this.p.lerp(this.pos.y, this.target.y, 0.12 + 0.18 * t);
+        this.snap = Math.max(0, this.snap - this.snapDecay);
       }
 
-      // 채움: 하트 + (melt 중이면) 드립 실루엣까지 포함해서 반반 색 채우기
-      if (fillProgress > 0.001) {
-        fillHeartHalfAndHalfWithMelt(fillProgress, meltProgress);
-      }
+      this.vel.add(this.acc);
+      this.vel.limit(this.maxspeed);
+      this.pos.add(this.vel);
+      this.acc.mult(0);
+    };
 
-      // 외곽 좌/우 단색 드로잉(점+선)
-      drawPath(leftPts, n, LEFT_COLOR);
-      drawPath(rightPts, n, RIGHT_COLOR);
+    Vehicle.prototype.show = function () {
+      var p = this.p;
+      p.stroke(255);
+      p.strokeWeight(5);
+      p.point(this.pos.x, this.pos.y);
+    };
 
-      // cusp 표시(선택)
-      noStroke();
-      fill(255, 255, 255, 28);
-      circle(cusp.x, cusp.y, 7);
-      // Arrive: vehicle follows the mouse with smooth deceleration
-      const target = createVector(mouseX, mouseY);
-      fill(255, 0, 0);
-      noStroke();
-      ellipse(target.x, target.y, 18);
+    Vehicle.prototype.arrive = function (target) {
+      var p = this.p;
+      var desired = p5.Vector.sub(target, this.pos);
+      var d = desired.mag();
+      var speed = this.maxspeed;
 
-      const steering = vehicle.arrive(target);
-      vehicle.applyForce(steering);
-      vehicle.update();
-      vehicle.show();
+      // larger slow-down radius for gentler stop
+      if (d < 160) speed = p.map(d, 0, 160, 0, this.maxspeed);
 
-      // (디버그) seed 점 보려면 켜기
-      // drawSeedsDebug();
-    }
+      desired.setMag(speed);
+      var steer = p5.Vector.sub(desired, this.vel);
+      steer.limit(this.maxforce);
+      return steer;
+    };
 
-    // ===== Path building =====
-    function rebuildPaths() {
-      const rawRight = sampleHeart(0, Math.PI, HALF_POINTS);
-      const rawLeft = sampleHeart(0, -Math.PI, HALF_POINTS);
+    Vehicle.prototype.flee = function (target) {
+      var p = this.p;
+      var desired = p5.Vector.sub(target, this.pos);
+      var d = desired.mag();
 
-      const fitted = fitToCanvas(rawLeft, rawRight);
-      leftPts = fitted.left;
-      rightPts = fitted.right;
-
-      cusp = leftPts[0];
-      axisX = cusp.x;
-
-      outlinePts = buildClosedOutline(leftPts, rightPts);
-
-      // 리사이즈 시 melt 리셋
-      drips = [];
-      nextSeeds = [];
-      meltProgress = 0;
-      meltPeak = 0;
-      resetAutoScroll();
-    }
-
-    function sampleHeart(t0, t1, n) {
-      const pts = [];
-      for (let i = 0; i < n; i++) {
-        const t = map(i, 0, n - 1, t0, t1);
-        const x = 16 * Math.pow(Math.sin(t), 3);
-        const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
-        pts.push({ x, y });
-      }
-      return pts;
-    }
-
-    function fitToCanvas(leftRaw, rightRaw) {
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      const all = leftRaw.concat(rightRaw);
-      for (const p of all) {
-        if (p.x < minX) minX = p.x;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.y > maxY) maxY = p.y;
-      }
-      const w = maxX - minX;
-      const h = maxY - minY;
-
-      const reservedDrop = Math.min(DRIP_FALL_SPACE, height * 0.45); // melt 드롭이 내려갈 공간을 미리 비워둠
-      const workingH = Math.max(height - reservedDrop, height * 0.55);
-
-      const pad = Math.min(width, workingH) * 0.16;
-      const usableW = Math.max(1, width - pad * 2);
-      const usableH = Math.max(1, workingH - pad * 2);
-
-      const sx = usableW / w;
-      const sy = usableH / h;
-      const s = Math.min(sx, sy);
-
-      const cx = width * 0.5;
-      const cy = pad + usableH * 0.5;
-
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-
-      function toScreen(p) {
-        return {
-          x: cx + (p.x - centerX) * s,
-          y: cy - (p.y - centerY) * s
-        };
-      }
-      return {
-        left: leftRaw.map(toScreen),
-        right: rightRaw.map(toScreen)
-      };
-    }
-
-    function buildClosedOutline(left, right) {
-      const out = [];
-      for (const p of left) out.push(p);
-      for (let i = right.length - 1; i >= 0; i--) out.push(right[i]);
-      return out;
-    }
-
-    // ===== Melt: drip anchors from heart bottom =====
-    function buildDripsFromBottom(poly, count) {
-      count = Math.max(count, MIN_DRIPS);
-      const dropRoom = Math.max(140, Math.min(DRIP_FALL_SPACE, height * 0.5)); // 화면 크기에 맞춰 드립 길이 제한
-      // 하트 폴리곤에서 가장 아래쪽(y 최대) 근처 점들을 후보로 사용
-      let maxY = -Infinity;
-      for (const p of poly) maxY = Math.max(maxY, p.y);
-      const thresh = maxY - DRIP_PICK_Y;
-
-      const candidates = poly.filter(p => p.y >= thresh);
-      const leftPool = candidates.filter(p => p.x < axisX - 10);
-      const rightPool = candidates.filter(p => p.x > axisX + 10);
-      const tipPool = candidates.filter(p => Math.abs(p.x - axisX) <= 24);
-
-      // 너무 적으면 전체에서 y 상위 구간으로 보강
-      const pool = (candidates.length >= 8) ? candidates : poly.slice().sort((a, b) => b.y - a.y).slice(0, 40);
-
-      // x가 너무 가까운 드립이 몰리지 않게 간단한 거리 제약
-      const out = [];
-      const minDx = 14;
-
-      function pushWithSpacing(pt) {
-        if (out.every(d => Math.abs(d.x - pt.x) > minDx)) {
-          out.push(makeDrip(pt));
-          return true;
-        }
-        return false;
-      }
-
-      function makeDrip(p) {
-        return {
-          x: p.x,
-          y: p.y,
-          w: random(18, 34),        // 기본 폭
-          maxLen: random(120, dropRoom), // 최대 길이(꾸덕하게 길게)
-          phase: random(TWO_PI),
-          speed: random(0.7, 1.15),
-          delay: random(0.00, 0.28) // 드립 시작 타이밍(지연)
-        };
-      }
-
-      // 양옆 곡선에서도 드립이 2~3개씩 나오도록 우선 배치
-      const SIDE_TARGET = 2;
-      let guardSides = 0;
-      while (out.length < SIDE_TARGET && guardSides++ < 400 && leftPool.length) {
-        const p = leftPool[Math.floor(Math.random() * leftPool.length)];
-        pushWithSpacing(p);
-      }
-      guardSides = 0;
-      while (out.length < SIDE_TARGET * 2 && guardSides++ < 400 && rightPool.length) {
-        const p = rightPool[Math.floor(Math.random() * rightPool.length)];
-        pushWithSpacing(p);
-      }
-      // 팁 근처에서도 1개 정도 보장
-      if (tipPool.length) {
-        const p = tipPool[Math.floor(Math.random() * tipPool.length)];
-        pushWithSpacing(p);
-      }
-
-      let guard = 0;
-      while (out.length < count && guard++ < 2000) {
-        const p = pool[Math.floor(Math.random() * pool.length)];
-        pushWithSpacing(p);
-      }
-
-      // Guarantee at least MIN_DRIPS even if spacing rules prevented fills
-      if (out.length < MIN_DRIPS) {
-        let guard2 = 0;
-        while (out.length < MIN_DRIPS && guard2++ < 500) {
-          const p = pool[Math.floor(Math.random() * pool.length)];
-          pushWithSpacing(p);
-        }
-      }
-      return out;
-    }
-
-    // ===== Fill (half-and-half) + Melt silhouette =====
-    function fillHeartHalfAndHalfWithMelt(alpha = 1, melt = 0) {
-      const ctx = drawingContext;
-
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      const blurPx = FILL_BLUR_MAX * clamp01(alpha);
-      ctx.filter = blurPx > 0.1 ? `blur(${blurPx}px)` : 'none';
-
-      // 1) 하트 폴리곤 path
-      ctx.beginPath();
-      ctx.moveTo(outlinePts[0].x, outlinePts[0].y);
-      for (let i = 1; i < outlinePts.length; i++) {
-        ctx.lineTo(outlinePts[i].x, outlinePts[i].y);
-      }
-      ctx.closePath();
-
-      // 2) melt가 진행 중이면, 하트 path에 "드립 shape"를 붙인다
-      if (melt > 0.001 && drips.length > 0) {
-        // 다음 애니메이션 seed(끝점) 갱신
-        nextSeeds = [];
-
-        for (const d of drips) {
-          const t = dripLocalT(melt, d.delay);
-          if (t <= 0) continue;
-
-          const E = easeInOutQuart(t);          // 꾸덕함용 easing
-          const len = E * d.maxLen;
-
-          const fixedLen = d.maxLen * DRIP_FIXED_RATIO;
-          const stretchLen = Math.max(0, len - fixedLen);
-
-          const stretchRatio = d.maxLen > 0 ? (len / d.maxLen) : 0;
-
-          // 끝 물방울(head) 무게 증가: 길어질수록 더 큼
-          const headR = lerp(d.w * 0.55, d.w * 1.45, clamp01(stretchRatio));
-
-          // 목(neck) 가늘어짐
-          const neckW = lerp(d.w * 0.95, d.w * 0.32, clamp01(stretchRatio));
-
-          // 저항 떨림(초반에만, 길어질수록 감소)
-          const resist = 4.0 * Math.sin(frameCount * 0.045 * d.speed + d.phase) * (1 - clamp01(stretchRatio));
-          const x = d.x + resist;
-          const y0 = d.y;
-
-          // "상단은 버티고 하단만 늘어나는" 느낌을 주기 위해
-          // 실제 늘어나는 구간은 아래쪽(Stretch 영역)에만 강하게 적용
-          const yNeck = y0 + fixedLen * 0.70; // 목이 시작되는 지점(상단은 비교적 고정)
-          const yHead = y0 + fixedLen + stretchLen;
-
-          // 드립 shape를 path에 추가 (좌우 베지어 2개로 닫힌 형태)
-          ctx.moveTo(x - neckW / 2, y0);
-
-          // 왼쪽 라인
-          ctx.bezierCurveTo(
-            x - neckW / 2, yNeck,
-            x - headR, yHead,
-            x, yHead
-          );
-
-          // 오른쪽 라인
-          ctx.bezierCurveTo(
-            x + headR, yHead,
-            x + neckW / 2, yNeck,
-            x + neckW / 2, y0
-          );
-
-          ctx.closePath();
-
-          // seed: 끝 물방울 중심(다음 애니메이션 입력)
-          nextSeeds.push({ x, y: yHead, r: headR, side: (x < axisX ? "L" : "R") });
-        }
-      } else {
-        nextSeeds = [];
-      }
-
-      // 3) clip
-      ctx.clip();
-
-      // 4) clip 내부를 좌/우 반반 채우기
-      ctx.fillStyle = LEFT_COLOR;
-      ctx.fillRect(0, 0, axisX, height);
-
-      ctx.fillStyle = RIGHT_COLOR;
-      ctx.fillRect(axisX, 0, width - axisX, height);
-
-      ctx.restore();
-    }
-
-    // melt 진행률(0..1)을 드립별 지연(delay)을 고려한 로컬 t로 변환
-    function dripLocalT(melt, delay) {
-      if (melt <= delay) return 0;
-      return clamp01((melt - delay) / (1 - delay));
-    }
-
-    // ===== Vehicle (Arrive steering) =====
-    class Vehicle {
-      constructor(x, y) {
-        this.pos = createVector(x, y);
-        this.vel = createVector(0, 0);
-        this.acc = createVector(0, 0);
-      this.r = 8;
-      this.maxSpeed = 6;
-      this.maxSpeedFar = 10; // go faster when far away
-      this.maxForce = 0.8;
-    }
-      applyForce(f) { this.acc.add(f); }
-      arrive(target) {
-        const desired = p5.Vector.sub(target, this.pos);
-        const d = desired.mag();
-
-        const slowRadius = 120;
-        const farRadius = 360;
-
-        // Speed ramps up to maxSpeedFar when far away, then eases down near the target
-        let speed;
-        if (d < slowRadius) {
-          speed = map(d, 0, slowRadius, 0, this.maxSpeed);
-        } else {
-          speed = map(d, slowRadius, farRadius, this.maxSpeed, this.maxSpeedFar);
-          speed = constrain(speed, this.maxSpeed, this.maxSpeedFar);
-        }
-
-        desired.setMag(speed);
-        const steer = p5.Vector.sub(desired, this.vel);
-        steer.limit(this.maxForce);
+      // smaller flee radius to reduce jitter
+      if (d < 45) {
+        desired.setMag(this.maxspeed);
+        desired.mult(-1);
+        var steer = p5.Vector.sub(desired, this.vel);
+        steer.limit(this.maxforce);
         return steer;
-    }
-      update() {
-        this.vel.add(this.acc);
-        this.vel.limit(this.maxSpeed);
-        this.pos.add(this.vel);
-        this.acc.mult(0);
       }
-      show() {
-        push();
-        translate(this.pos.x, this.pos.y);
-        const angleToMouse = Math.atan2(mouseY - this.pos.y, mouseX - this.pos.x);
-        rotate(angleToMouse);
-        if (catImg) {
-          imageMode(CENTER);
-          const h = catImg.height && catImg.width ? CAT_SIZE * (catImg.height / catImg.width) : CAT_SIZE;
-          image(catImg, 0, 0, CAT_SIZE, h);
-        } else {
-          noStroke();
-          fill(255);
-          triangle(-this.r, -this.r * 0.6, -this.r, this.r * 0.6, this.r, 0);
+      return p.createVector(0, 0);
+    };
+
+    // ===== p5 intro sketch (sequential lines, near-target spawn) =====
+    const introSketch = (p) => {
+      let font;
+
+      // line-split for sequential reveal
+      const lines = [
+        "Hello, I'm Deaun Lee.",
+        "I am majoring in Art & Technology and Life Science at Sogang University.",
+        "I aspire to become a specialist in bioinformatics."
+      ];
+
+      let lineTargets = [];
+      let lineVehicles = [];
+      let revealIndex = 0;
+      let nextRevealAt = 0;
+
+      const REVEAL_DELAY_MS = 850;
+      const SAMPLE_DESKTOP = 0.20;
+      const SAMPLE_MOBILE = 0.16;
+
+      p.preload = () => {
+        font = p.loadFont("./asset/B612Mono-Bold.ttf", () => { }, () => { font = null; });
+      };
+
+      p.setup = () => {
+        const host = document.getElementById("introCanvasHost");
+        const c = p.createCanvas(p.windowWidth, p.windowHeight);
+        c.parent(host);
+        p.pixelDensity(1);
+        p.background(0);
+        p.noFill();
+        p.stroke(255);
+
+        buildAllLines();
+
+        // first line appears immediately
+        revealIndex = 1;
+        nextRevealAt = p.millis() + REVEAL_DELAY_MS;
+      };
+
+      p.draw = () => {
+        if (introDone) return;
+
+        p.background(0, 85);
+
+        // reveal lines one by one
+        if (revealIndex < lines.length && p.millis() >= nextRevealAt) {
+          revealIndex++;
+          nextRevealAt = p.millis() + REVEAL_DELAY_MS;
         }
-        pop();
-      }
-    }
 
+        for (let li = 0; li < revealIndex; li++) {
+          const arr = lineVehicles[li];
+          for (let i = 0; i < arr.length; i++) {
+            arr[i].behaviors();
+            arr[i].update();
+            arr[i].show();
+          }
+        }
+      };
 
-    // ===== Drawing (dots & lines) =====
-    function drawPath(path, n, col) {
-      if (n <= 1) return;
+      p.windowResized = () => {
+        p.resizeCanvas(p.windowWidth, p.windowHeight);
+        buildAllLines();
+        revealIndex = 1;
+        nextRevealAt = p.millis() + REVEAL_DELAY_MS;
+      };
 
-      stroke(col);
-      strokeWeight(LINE_WEIGHT);
-      strokeCap(ROUND);
+      function buildAllLines() {
+        lineTargets = [];
+        lineVehicles = [];
 
-      for (let i = 1; i < n; i++) {
-        const a = path[i - 1], b = path[i];
-        line(a.x, a.y, b.x, b.y);
-      }
+        const W = p.width;
+        const H = p.height;
 
-      noStroke();
-      fill(col);
-      for (let i = 0; i < n; i++) {
-        const p = path[i];
-        circle(p.x, p.y, DOT_SIZE);
+        const fontSize = clamp(Math.round(W * 0.05), 26, 56);
+        const lineGap = Math.round(fontSize * 0.95);
+        const sample = (W < 480) ? SAMPLE_MOBILE : SAMPLE_DESKTOP;
 
-        fill(255, 255, 255, 34);
-        circle(p.x - 1.0, p.y - 1.0, DOT_SIZE * 0.45);
-        fill(col);
-      }
-    }
+        let boundsList = [];
+        let totalH = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const b = (font && font.textBounds)
+            ? font.textBounds(lines[i], 0, 0, fontSize)
+            : { x: 0, y: 0, w: p.textWidth(lines[i]) || (lines[i].length * fontSize * 0.6), h: fontSize };
+          boundsList.push(b);
+          totalH += b.h;
+          if (i !== lines.length - 1) totalH += lineGap;
+        }
 
-    function drawGuideOutline() {
-      noFill();
-      stroke(255, 255, 255, 14);
-      strokeWeight(1);
+        let yCursor = (H - totalH) / 2;
 
-      beginShape();
-      for (const p of leftPts) vertex(p.x, p.y);
-      for (let i = rightPts.length - 1; i >= 0; i--) vertex(rightPts[i].x, rightPts[i].y);
-      endShape(CLOSE);
-    }
+        for (let i = 0; i < lines.length; i++) {
+          const b = boundsList[i];
+          const x = (W - b.w) / 2 - b.x;
+          const y = yCursor + b.h - b.y;
 
-    // (옵션) seed 디버그
-    function drawSeedsDebug() {
-      noStroke();
-      for (const s of nextSeeds) {
-        fill(s.side === "L" ? LEFT_COLOR : RIGHT_COLOR);
-        circle(s.x, s.y, 6);
-        fill(255, 255, 255, 80);
-        circle(s.x, s.y, 2);
-      }
-    }
+          let pts = [];
+          if (font && font.textToPoints) {
+            pts = font.textToPoints(lines[i], x, y, fontSize, {
+              sampleFactor: sample,
+              simplifyThreshold: 0
+            });
+          }
 
-    // ===== Easing / Utils =====
-    function easeInOutQuart(t) {
-      return t < 0.5
-        ? 8 * t * t * t * t
-        : 1 - Math.pow(-2 * t + 2, 4) / 2;
-    }
+          // font load failed
+          if (!pts || pts.length === 0) {
+            p.clear();
+            p.background(0);
+            p.fill(255);
+            p.noStroke();
+            p.textAlign(p.CENTER, p.CENTER);
+            p.textSize(18);
+            p.text("폰트 로드 실패: ./asset/B612Mono-Bold.ttf 경로를 확인하세요", W / 2, H / 2);
+            return;
+          }
 
-    // ===== Auto scroll helper =====
-    function maybeAutoScroll(targetMelt) {
-      if (!scroller) return;
-      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
-      if (maxScroll <= 0) return;
+          lineTargets.push(pts);
 
-      // melt가 시작되면 한 번만 아래로 살짝 스크롤해서 드립 일부가 보이게 함
-      if (!autoScrollTriggered && targetMelt > 0.02) {
-        autoScrollTriggered = true;
-        const target = maxScroll * AUTO_SCROLL_RATIO;
-        smoothScrollTo(scroller, target, 900);
-      }
-    }
+          const vehicles = [];
+          for (let k = 0; k < pts.length; k++) {
+            const t = pts[k];
+            const ang = p.random(p.TWO_PI);
+            const rad = p.random(18, 48);
+            const sx = t.x + Math.cos(ang) * rad;
+            const sy = t.y + Math.sin(ang) * rad;
 
-    function resetAutoScroll() {
-      autoScrollTriggered = false;
-      if (scrollAnim && typeof cancelAnimationFrame === "function") {
-        cancelAnimationFrame(scrollAnim);
-      }
-      scrollAnim = null;
-    }
+            vehicles.push(new Vehicle(p, t.x, t.y, sx, sy));
+          }
+          lineVehicles.push(vehicles);
 
-    function smoothScrollTo(el, target, duration = 800) {
-      const start = el.scrollTop;
-      const dist = target - start;
-      if (Math.abs(dist) < 2) return;
-
-      const startTime = performance.now();
-      function step(now) {
-        const t = Math.min(1, (now - startTime) / duration);
-        const eased = easeInOutQuart(t);
-        el.scrollTop = start + dist * eased;
-        if (t < 1) {
-          scrollAnim = requestAnimationFrame(step);
-        } else {
-          scrollAnim = null;
+          yCursor += b.h + lineGap;
         }
       }
-      scrollAnim = requestAnimationFrame(step);
-    }
 
-    function calcScrollProgress(el) {
-      const max = el.scrollHeight - el.clientHeight;
-      if (max <= 0) return 0;
-      return clamp01(el.scrollTop / max);
-    }
-    function clampInt(v, a, b) { return Math.max(a, Math.min(b, v)); }
-    function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+      function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+    };
+
+    // p5 인트로 실행 (instance mode)
+    new p5(introSketch);
   </script>
+
 </body>
 
 </html>

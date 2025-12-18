@@ -15,10 +15,59 @@
             --shadow: 0 24px 80px rgba(0, 0, 0, .55);
             --shadow2: 0 12px 40px rgba(0, 0, 0, .45);
             --radius: 22px;
+            --footer-height: 60vh;
         }
 
         * {
             box-sizing: border-box;
+        }
+
+        .loader-wrap {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(11, 11, 11, 0.72);
+            z-index: 9999;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            transition: opacity 0.4s ease;
+        }
+
+        .loader {
+            width: 400px;
+            height: 200px;
+            border-radius: 500px 500px 0 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .loader::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 -100%;
+            background:
+                radial-gradient(farthest-side, #ffd738 80%, #0000) left 70% top 20%/75px 75px,
+                radial-gradient(farthest-side, #020308 92%, #0000) left 65% bottom 19%/60px 60px,
+                radial-gradient(farthest-side, #ecfefe 92%, #0000) left 70% bottom 20%/75px 75px,
+                linear-gradient(#9eddfe 50%, #020308 0);
+            background-repeat: no-repeat;
+            animation: l5 2s infinite;
+        }
+
+        @keyframes l5 {
+            0%, 20% {
+                transform: rotate(0);
+            }
+
+            40%, 60% {
+                transform: rotate(.5turn);
+            }
+
+            80%, 100% {
+                transform: rotate(1turn);
+            }
         }
 
         html,
@@ -27,7 +76,7 @@
             margin: 0;
             background: var(--bg);
             color: var(--fg);
-            overflow: hidden;
+            overflow: auto;
         }
 
         body {
@@ -35,7 +84,7 @@
         }
 
         .wrap {
-            height: 100%;
+            min-height: calc(100vh - var(--footer-height));
             display: grid;
             grid-template-rows: auto 1fr auto;
             align-items: center;
@@ -256,6 +305,68 @@
             color: rgba(255, 255, 255, .75);
         }
 
+        /* Footer */
+        .footer-shell {
+            position: relative;
+            width: 100%;
+            height: var(--footer-height);
+            min-height: 360px;
+            background: #000;
+            overflow: hidden;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer-shell canvas {
+            display: block;
+        }
+
+        .contact-panel {
+            position: relative;
+            width: 100%;
+            isolation: isolate;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.88);
+            color: #f7f7f7;
+            min-height: 15vh;
+            padding: 48px clamp(5px, 5vw, 64px);
+            display: none;
+            align-content: center;
+            gap: 16px;
+            backdrop-filter: blur(6px);
+            box-sizing: border-box;
+        }
+
+        .contact-panel.show {
+            display: grid;
+        }
+
+        .contact-items {
+            display: grid;
+            gap: 10px;
+            font-size: clamp(15px, 2vw, 18px);
+            position: relative;
+            z-index: 1;
+        }
+
+        .contact-items a {
+            color: #f2f2f2;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: block;
+            padding: 14px 12px;
+            border-radius: 10px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+        }
+
+        .contact-items a:hover {
+            border-color: rgba(255, 255, 255, 0.4);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            transform: translateY(-2px);
+        }
+
         @media (max-width:420px) {
             .card .label .name {
                 font-size: 18px;
@@ -269,6 +380,9 @@
 </head>
 
 <body>
+    <div class="loader-wrap" id="loader" aria-label="Loading">
+        <div class="loader"></div>
+    </div>
     <div class="wrap">
         <div class="title" aria-live="polite">
             <h1 id="pageTitle">BIO</h1>
@@ -295,6 +409,32 @@
         </div>
     </div>
 
+    <div class="footer-shell" id="footer"></div>
+    <section class="contact-panel" aria-label="Contact panel">
+        <div class="contact-items">
+            <a href="mailto:youremail@example.com">[email] youremail@example.com</a>
+            <a href="https://github.com/Amyleefiwfjj" target="_blank" rel="noopener">[github] Amyleefiwfjj</a>
+            <a href="https://blog.naver.com/da04eun" target="_blank" rel="noopener">[blog] da04eun</a>
+            <a href="tel:+821012345678">[phone] 010-1234-5678</a>
+        </div>
+    </section>
+
+    <script>
+        const loaderEl = document.getElementById("loader");
+
+        function hideLoader() {
+            if (!loaderEl) return;
+            loaderEl.style.opacity = "0";
+            loaderEl.style.pointerEvents = "none";
+            setTimeout(() => { loaderEl.style.display = "none"; }, 400);
+        }
+
+        setTimeout(hideLoader, 1200);
+
+        window.addEventListener("load", () => {
+            hideLoader();
+        });
+    </script>
     <script>
         const projects = [
             { name: "ART_TECH", short: "AT", href: "./art_tech.html" },
@@ -388,6 +528,272 @@
         });
 
         render();
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+    <script>
+        let chFooterFont;
+        let chFooterPoints = [];
+        let chFooterBounds;
+        let chFooterLastTx = 0, chFooterLastTy = 0;
+        let chFooterContactOpen = false;
+        let chFooterContactPanel = null;
+        let chFooterBackdropInstance = null;
+
+        const CH_FOOTER_WORD = "contact me";
+        const CH_FOOTER_FONT_SIZE = 140;
+        const CH_FOOTER_SAMPLE = 0.28;
+        const CH_FOOTER_DOT = 4;
+        const CH_FOOTER_MAX_AMP = 20;
+        const CH_FOOTER_BG_ALPHA = 210;
+
+        const chFooterSchemes = [
+            { colors: ['#7bdff2', '#b2f7ef', '#eff7f6', '#f7d6e0', '#f2b5d4'] },
+            { colors: ['#ff9a9e', '#fad0c4', '#fbc2eb', '#a6c1ee'] },
+            { colors: ['#0affef', '#5efc8d', '#e6ff64', '#ff9d76'] },
+            { colors: ['#ff6b6b', '#ffd166', '#ffe66d', '#06d6a0'] }
+        ];
+        const chFooterBgColors = ['#05070d', '#06090f', '#0b0f16', '#0f1220'];
+
+        let chFooterJitter = 1.0;
+        let chFooterJitterTarget = 1.0;
+        let chFooterHeroH = 0;
+
+        const chFooterWordSketch = (p) => {
+            p.preload = () => { chFooterFont = p.loadFont("./asset/B612Mono-Bold.ttf"); };
+
+            p.setup = () => {
+                chFooterContactPanel = document.querySelector('.contact-panel');
+                chFooterHeroH = Math.max(p.windowHeight * 0.6, 360);
+                document.documentElement.style.setProperty('--footer-height', `${chFooterHeroH}px`);
+                const c = p.createCanvas(p.windowWidth, chFooterHeroH);
+                const footerEl = document.getElementById("footer");
+                c.parent(footerEl);
+                p.colorMode(p.RGB);
+                initTextGeometry();
+                p.noStroke();
+            };
+
+            p.draw = () => {
+                p.background(0);
+
+                const tx = (p.width - chFooterBounds.w) / 2 - chFooterBounds.x;
+                const ty = (p.height + chFooterBounds.h) / 2 - chFooterBounds.y;
+                chFooterLastTx = tx;
+                chFooterLastTy = ty;
+
+                const hover =
+                    p.mouseX >= tx + chFooterBounds.x && p.mouseX <= tx + chFooterBounds.x + chFooterBounds.w &&
+                    p.mouseY >= ty + chFooterBounds.y && p.mouseY <= ty + chFooterBounds.y + chFooterBounds.h;
+
+                chFooterJitterTarget = hover ? 0.0 : 1.0;
+                chFooterJitter = p.lerp(chFooterJitter, chFooterJitterTarget, 0.12);
+                const amp = CH_FOOTER_MAX_AMP * chFooterJitter;
+                const t = p.frameCount * 0.02;
+
+                p.fill(255, 210);
+                for (let i = 0; i < chFooterPoints.length; i++) {
+                    const pt = chFooterPoints[i];
+                    const nx = p.noise(i * 0.07, t) * 2 - 1;
+                    const ny = p.noise(i * 0.07 + 1000, t) * 2 - 1;
+                    const x = tx + pt.x + nx * amp;
+                    const y = ty + pt.y + ny * amp;
+                    p.ellipse(x, y, CH_FOOTER_DOT, CH_FOOTER_DOT);
+                }
+            };
+
+            p.windowResized = () => {
+                chFooterHeroH = Math.max(p.windowHeight * 0.6, 360);
+                document.documentElement.style.setProperty('--footer-height', `${chFooterHeroH}px`);
+                p.resizeCanvas(p.windowWidth, chFooterHeroH);
+                initTextGeometry();
+            };
+
+            p.mousePressed = () => {
+                const within =
+                    p.mouseX >= chFooterLastTx + chFooterBounds.x && p.mouseX <= chFooterLastTx + chFooterBounds.x + chFooterBounds.w &&
+                    p.mouseY >= chFooterLastTy + chFooterBounds.y && p.mouseY <= chFooterLastTy + chFooterBounds.y + chFooterBounds.h;
+                if (!within || !chFooterContactPanel) return;
+                chFooterContactOpen = !chFooterContactOpen;
+                chFooterContactPanel.classList.toggle('show', chFooterContactOpen);
+                if (chFooterContactOpen) {
+                    ensurePanelBackdrop();
+                    chFooterContactPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            };
+
+            function initTextGeometry() {
+                chFooterPoints = chFooterFont.textToPoints(CH_FOOTER_WORD, 0, 0, CH_FOOTER_FONT_SIZE, {
+                    sampleFactor: CH_FOOTER_SAMPLE,
+                    simplifyThreshold: 0
+                });
+                chFooterBounds = chFooterFont.textBounds(CH_FOOTER_WORD, 0, 0, CH_FOOTER_FONT_SIZE);
+            }
+        };
+
+        const chFooterBackdropSketch = (p) => {
+            let colors = [];
+            let colorbg;
+            let grid;
+            const cellSize = 20;
+            let cols, rows;
+            const maxAge = 80;
+            let panelEl;
+
+            p.setup = () => {
+                panelEl = document.querySelector('.contact-panel');
+                const { width, height } = getPanelSize();
+                const canvas = p.createCanvas(width, height);
+                canvas.parent(panelEl);
+                canvas.style('position', 'absolute');
+                canvas.style('inset', '0');
+                canvas.style('z-index', '0');
+                canvas.style('pointer-events', 'none');
+                p.colorMode(p.RGB);
+                initGrid();
+            };
+
+            p.draw = () => {
+                if (!panelEl || panelEl.offsetParent === null) {
+                    p.clear();
+                    return;
+                }
+
+                const { width, height } = getPanelSize();
+                if (width !== p.width || height !== p.height) {
+                    p.resizeCanvas(width, height);
+                    initGrid();
+                }
+
+                const bg = p.color(colorbg);
+                bg.setAlpha(CH_FOOTER_BG_ALPHA);
+                p.background(bg);
+
+                for (let i = 0; i < cols; i++) {
+                    for (let j = 0; j < rows; j++) {
+                        const cell = grid[i][j];
+                        if (!cell.alive) continue;
+                        cell.age++;
+                        const x = i * cellSize + cellSize / 2;
+                        const y = j * cellSize + cellSize / 2;
+                        const size = p.map(cell.age, 0, maxAge, 1, cellSize);
+
+                        p.fill(getFlowingColor(i, j, cell.age));
+                        p.noStroke();
+                        p.push();
+                        p.translate(x, y);
+                        drawShape(cell.shape, size);
+                        p.pop();
+                        if (cell.age > maxAge) cell.alive = false;
+                    }
+                }
+                updateGrowth();
+            };
+
+            p.windowResized = () => {
+                if (!panelEl) return;
+                const { width, height } = getPanelSize();
+                p.resizeCanvas(width, height);
+                initGrid();
+            };
+
+            function getPanelSize() {
+                if (!panelEl) return { width: window.innerWidth, height: 200 };
+                const rect = panelEl.getBoundingClientRect();
+                return { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
+            }
+
+            function initGrid() {
+                const scheme = p.random(chFooterSchemes);
+                colors = scheme.colors;
+                colorbg = p.random(chFooterBgColors);
+                cols = Math.max(1, Math.floor(p.width / cellSize));
+                rows = Math.max(1, Math.floor(p.height / cellSize));
+                grid = Array.from({ length: cols }, () =>
+                    Array.from({ length: rows }, () => ({
+                        alive: p.random() < 0.02,
+                        age: 0,
+                        shape: p.random(["circle", "triangle", "rect"]),
+                    }))
+                );
+            }
+
+            function drawShape(type, size) {
+                switch (type) {
+                    case "circle":
+                        p.ellipse(0, 0, size, size); break;
+                    case "triangle": {
+                        const h = size * p.sqrt(3) / 2;
+                        p.triangle(0, -h / 2, -size / 2, h / 2, size / 2, h / 2);
+                        break;
+                    }
+                    case "rect":
+                        p.rectMode(p.CENTER);
+                        p.rect(0, 0, size, size);
+                        break;
+                }
+            }
+
+            function updateGrowth() {
+                let next = [];
+
+                for (let i = 0; i < cols; i++) {
+                    next[i] = [];
+                    for (let j = 0; j < rows; j++) {
+                        const cell = grid[i][j];
+                        const neighbors = countAliveNeighbors(i, j);
+
+                        const newCell = { ...cell };
+                        if (!cell.alive && neighbors >= 2 && p.random() < 0.05) {
+                            newCell.alive = true;
+                            newCell.age = 0;
+                        }
+
+                        next[i][j] = newCell;
+                    }
+                }
+
+                grid = next;
+            }
+
+            function countAliveNeighbors(x, y) {
+                let count = 0;
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        if (dx === 0 && dy === 0) continue;
+                        const nx = (x + dx + cols) % cols;
+                        const ny = (y + dy + rows) % rows;
+                        if (grid[nx][ny].alive) count++;
+                    }
+                }
+                return count;
+            }
+
+            function getFlowingColor(i, j, age) {
+                const px = i / cols;
+                const py = j / rows;
+                const t = p.frameCount * 0.01;
+                const n = p.sin(px * 2 + py * 2 + t) * 0.5 + 0.5;
+                const ageFactor = p.constrain(age / maxAge, 0, 1);
+                const blend = (ageFactor + n) / 2;
+                const indexA = Math.floor(blend * (colors.length - 1));
+                const indexB = (indexA + 1) % colors.length;
+                const mix = blend * (colors.length - 1) % 1;
+                const c = p.lerpColor(p.color(colors[indexA]), p.color(colors[indexB]), mix);
+                c.setAlpha(160);
+                return c;
+            }
+        };
+
+        function ensurePanelBackdrop() {
+            if (!chFooterBackdropInstance) {
+                chFooterBackdropInstance = new p5(chFooterBackdropSketch);
+            }
+        }
+
+        window.addEventListener('load', () => {
+            new p5(chFooterWordSketch);
+        });
     </script>
 </body>
 
