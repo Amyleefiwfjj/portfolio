@@ -280,16 +280,7 @@
                 st.el.style.top = p.y + 'px';
             }
         }
-
-        // 전역 pause 토글
-        window.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
-                e.preventDefault();
-                globalPaused = !globalPaused;
-            }
-        });
-
-        window.addEventListener('resize', layout);
+window.addEventListener('resize', layout);
         layout();
     </script>
 </body>
