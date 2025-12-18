@@ -631,7 +631,7 @@
         <div>
           <div class="title">Results</div>
           <div class="meta">
-            <span class="pill" id="stepPill">Step: 0/9</span>
+            <span class="pill" id="stepPill">Step: 0/8</span>
             <span class="pill" id="timePill">—</span>
           </div>
         </div>
@@ -782,18 +782,7 @@
         </div>
 
         <!-- Step 9: placeholder -->
-        <div class="card reveal" id="step9">
-          <div class="card-head">
-            <div>
-              <b>Step 9. Next results</b>
-              <small>Heatmap / Confusion Matrix / Misclassified strip 등을 여기에 추가</small>
-            </div>
-            <span class="pill">Optional</span>
-          </div>
-          <div class="card-body" style="color:rgba(255,255,255,.6); font-size:12.5px; line-height:1.55;">
-            필요 결과 이미지들을 더 주면 동일한 방식으로 세트 토글까지 묶어서 추가해주겠다.
-          </div>
-        </div>
+        <!-- Step 9 removed -->
 
         <div class="card" style="background:rgba(255,255,255,.02);">
           <div class="card-body" style="padding:12px;">
@@ -975,8 +964,7 @@
 
       { id: "step6", ms: 750, label: "Elbow method" },
       { id: "step7", ms: 850, label: "t-SNE (clusters) 2D/3D" },
-      { id: "step8", ms: 900, label: "Cluster prototypes" },
-      { id: "step9", ms: 650, label: "Next results" },
+      { id: "step8", ms: 900, label: "Cluster prototypes" }
     ];
 
     function hideAllSteps() {
@@ -997,10 +985,6 @@
         const sec = ((performance.now() - startTime) / 1000).toFixed(1);
         timePill.textContent = `${sec}s`;
       }
-    }
-
-    function revealAllSteps() {
-      RESULT_STEPS.forEach((_, idx) => showStep(idx + 1));
     }
 
     function renderClusterList() {
@@ -1044,7 +1028,7 @@
     if (revealAllBtn) {
       revealAllBtn.addEventListener("click", () => {
         clearTimers();
-        revealAllSteps();
+        RESULT_STEPS.forEach((_, idx) => showStep(idx + 1));
         setStatus("ok", "All steps displayed.");
         running = false;
         runBtn.disabled = false;
