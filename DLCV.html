@@ -629,7 +629,7 @@
         <div>
           <div class="title">Results</div>
           <div class="meta">
-            <span class="pill" id="stepPill">Step: 0/6</span>
+            <span class="pill" id="stepPill">Step: 0/9</span>
             <span class="pill" id="timePill">—</span>
           </div>
         </div>
@@ -672,11 +672,59 @@
           </div>
         </div>
 
-        <!-- Step 3: Elbow -->
+        <!-- Step 3: t-SNE after removing artifacts -->
         <div class="card reveal" id="step3">
           <div class="card-head">
             <div>
-              <b>Step 3. Elbow method (choose K)</b>
+              <b>Step 3. t-SNE after removing staining artifacts</b>
+              <small>artifact 제거 후 임베딩 분포 변화 확인</small>
+            </div>
+            <span class="pill">2D</span>
+          </div>
+          <div class="card-body">
+            <div class="imgbox">
+              <img id="img_tsne_after_artifact" alt="t-SNE after removing staining artifacts" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 4: Before vs After -->
+        <div class="card reveal" id="step4">
+          <div class="card-head">
+            <div>
+              <b>Step 4. Before vs After (artifact removal)</b>
+              <small>artifact 제거 전/후를 한 화면에서 비교</small>
+            </div>
+            <span class="pill">Compare</span>
+          </div>
+          <div class="card-body">
+            <div class="imgbox">
+              <img id="img_before_after" alt="Before vs After artifact removal" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 5: KMeans heatmap after artifact removal -->
+        <div class="card reveal" id="step5">
+          <div class="card-head">
+            <div>
+              <b>Step 5. KMeans on SimCLR features (after artifact removal)</b>
+              <small>클러스터별 true class 분포(heatmap)</small>
+            </div>
+            <span class="pill">Heatmap</span>
+          </div>
+          <div class="card-body">
+            <div class="imgbox">
+              <img id="img_kmeans_heatmap_after" alt="KMeans heatmap after artifact removal" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 6: Elbow -->
+        <div class="card reveal" id="step6">
+          <div class="card-head">
+            <div>
+              <b>Step 6. Elbow method (choose K)</b>
               <small>KMeans 클러스터 수 선택 근거 제시</small>
             </div>
             <span class="pill">Elbow</span>
@@ -688,11 +736,11 @@
           </div>
         </div>
 
-        <!-- Step 4: t-SNE (colored by clusters) -->
-        <div class="card reveal" id="step4">
+        <!-- Step 7: t-SNE (colored by clusters) -->
+        <div class="card reveal" id="step7">
           <div class="card-head">
             <div>
-              <b>Step 4. t-SNE (colored by KMeans clusters)</b>
+              <b>Step 7. t-SNE (colored by KMeans clusters)</b>
               <small>KMeans++ (K=5) 클러스터 결과를 임베딩 공간에서 확인</small>
             </div>
             <span class="pill">K=5</span>
@@ -707,12 +755,12 @@
           </div>
         </div>
 
-        <!-- Step 5: Cluster prototypes (toggle two sets) -->
-        <div class="reveal" id="step5">
+        <!-- Step 8: Cluster prototypes (toggle two sets) -->
+        <div class="reveal" id="step8">
           <div class="card">
             <div class="card-head">
               <div>
-                <b>Step 5. Cluster prototypes (centroid-nearest)</b>
+                <b>Step 8. Cluster prototypes (centroid-nearest)</b>
                 <small>두 세트(1차 / artifact 제거 후) 결과 토글</small>
               </div>
               <div style="display:flex; gap:8px; align-items:center;">
@@ -730,11 +778,11 @@
           </div>
         </div>
 
-        <!-- Step 6: placeholder -->
-        <div class="card reveal" id="step6">
+        <!-- Step 9: placeholder -->
+        <div class="card reveal" id="step9">
           <div class="card-head">
             <div>
-              <b>Step 6. Next results</b>
+              <b>Step 9. Next results</b>
               <small>Heatmap / Confusion Matrix / Misclassified strip 등을 여기에 추가</small>
             </div>
             <span class="pill">Optional</span>
@@ -784,6 +832,9 @@
       elbow: "asset/dlcv/elbow method on SimCLR t-SNE features.png",
       tsne_kmeans_2d: "asset/dlcv/t-SNE 2D colored by KMeans++ clusters ( K=5).png",
       tsne_kmeans_3d: "asset/dlcv/t-SNE 3D colored by KMeans++ clusters ( K=5).png",
+      tsne_after_artifact: "asset/dlcv/t-SNE after removing staining artifacts.png",
+      before_after: "asset/dlcv/contrast before and after artifact removal.png",
+      kmeans_heat_after: "asset/dlcv/kmeans on simCLR features after artifact removal.png",
     };
 
     // Cluster prototypes (two sets)
@@ -841,6 +892,9 @@
     const img_elbow = document.getElementById("img_elbow");
     const img_tsne_cluster_2d = document.getElementById("img_tsne_cluster_2d");
     const img_tsne_cluster_3d = document.getElementById("img_tsne_cluster_3d");
+    const img_tsne_after_artifact = document.getElementById("img_tsne_after_artifact");
+    const img_before_after = document.getElementById("img_before_after");
+    const img_kmeans_heatmap_after = document.getElementById("img_kmeans_heatmap_after");
 
     const selected = new Set();
     let running = false;
@@ -910,10 +964,15 @@
     const RESULT_STEPS = [
       { id: "step1", ms: 650, label: "t-SNE (true class) 2D" },
       { id: "step2", ms: 750, label: "t-SNE (true class) 3D" },
-      { id: "step3", ms: 750, label: "Elbow method" },
-      { id: "step4", ms: 850, label: "t-SNE (clusters) 2D/3D" },
-      { id: "step5", ms: 900, label: "Cluster prototypes" },
-      { id: "step6", ms: 650, label: "Next results" },
+
+      { id: "step3", ms: 700, label: "t-SNE after removing artifacts" },
+      { id: "step4", ms: 700, label: "Before vs After (artifact removal)" },
+      { id: "step5", ms: 700, label: "KMeans heatmap (after artifact removal)" },
+
+      { id: "step6", ms: 750, label: "Elbow method" },
+      { id: "step7", ms: 850, label: "t-SNE (clusters) 2D/3D" },
+      { id: "step8", ms: 900, label: "Cluster prototypes" },
+      { id: "step9", ms: 650, label: "Next results" },
     ];
 
     function hideAllSteps() {
@@ -921,7 +980,7 @@
         const el = document.getElementById(s.id);
         if (el) el.classList.remove("show");
       });
-      stepPill.textContent = "Step: 0/6";
+      stepPill.textContent = `Step: 0/${RESULT_STEPS.length}`;
       timePill.textContent = "—";
     }
 
@@ -929,7 +988,7 @@
       const step = RESULT_STEPS[n - 1];
       const el = document.getElementById(step.id);
       if (el) el.classList.add("show");
-      stepPill.textContent = `Step: ${n}/6`;
+      stepPill.textContent = `Step: ${n}/${RESULT_STEPS.length}`;
       if (startTime) {
         const sec = ((performance.now() - startTime) / 1000).toFixed(1);
         timePill.textContent = `${sec}s`;
@@ -980,6 +1039,9 @@
       img_elbow.src = safeSrc(RESULT_IMAGES.elbow);
       img_tsne_cluster_2d.src = safeSrc(RESULT_IMAGES.tsne_kmeans_2d);
       img_tsne_cluster_3d.src = safeSrc(RESULT_IMAGES.tsne_kmeans_3d);
+      img_tsne_after_artifact.src = safeSrc(RESULT_IMAGES.tsne_after_artifact);
+      img_before_after.src = safeSrc(RESULT_IMAGES.before_after);
+      img_kmeans_heatmap_after.src = safeSrc(RESULT_IMAGES.kmeans_heat_after);
     }
 
     function startRun() {
