@@ -1,11 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
-<script>
-    window.addEventListener("load", () => {
-        window.open(
-            "https://lowly-chestnut-6a4.notion.site/Art-Technology-2cd4b5adedae80cba53ac2dbe5781388",
-            "_blank"
-        );
-        window.location.href = "/art_tech.html";
-    });
-</script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Art &amp; Technology</title>
+</head>
+<body>
+    <p>Opening the Notion page in a new window&hellip;</p>
+    <p>If it does not appear, <a id="notion-link" href="https://lowly-chestnut-6a4.notion.site/Art-Technology-2cd4b5adedae80cba53ac2dbe5781388?source=copy_link" target="_blank" rel="noopener noreferrer">click here</a>.</p>
+
+    <script>
+        const notionUrl = "https://lowly-chestnut-6a4.notion.site/Art-Technology-2cd4b5adedae80cba53ac2dbe5781388?source=copy_link";
+
+        window.addEventListener("load", () => {
+            const popup = window.open(
+                notionUrl,
+                "artTechNotion",
+                "noopener,noreferrer,width=1280,height=820,resizable=yes,scrollbars=yes"
+            );
+
+            if (popup) {
+                popup.focus();
+            }
+        });
+    </script>
+</body>
+</html>

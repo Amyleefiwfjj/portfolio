@@ -4,10 +4,43 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Floating Snap Menu Button</title>
+    <title>Bio + Floating Menu</title>
 
     <style>
-        /* 버튼 */
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            cursor: none;
+            background: #111;
+            overflow: hidden;
+        }
+
+        /* 커서 점(마우스 위치 표시) */
+        .cursor-dot {
+            position: fixed;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: red;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+
+        /* 고양이 트레일러 */
+        .cat {
+            position: fixed;
+            width: 60px;
+            height: auto;
+            pointer-events: none;
+            transform-origin: center center;
+            z-index: 999;
+            user-select: none;
+        }
+
+        /* 플로팅 버튼 */
         .floating-menu {
             position: fixed;
             left: 0;
@@ -18,7 +51,6 @@
             border: 0;
             cursor: grab;
             touch-action: none;
-            /* 모바일 드래그 필수 */
             z-index: 999999;
             background: rgba(20, 20, 20, 0.75);
             backdrop-filter: blur(6px);
@@ -48,7 +80,6 @@
             position: fixed;
             inset: 0;
             z-index: 999997;
-            /* floating 버튼(999999) 아래에 두고 싶으면 조절 */
             display: none;
             pointer-events: auto;
         }
@@ -72,7 +103,6 @@
             width: min(520px, calc(100vw - 40px));
             padding: 18px 18px 16px;
             border-radius: 22px;
-            /* 둥근 네모(“셀”) */
             background: rgba(15, 15, 15, 0.78);
             backdrop-filter: blur(10px);
             -webkit-backdrop-filter: blur(10px);
@@ -123,6 +153,9 @@
 </head>
 
 <body>
+    <div class="cursor-dot" id="cursor"></div>
+    <img src="asset/cat.png" class="cat" id="cat" />
+
     <!-- 버튼 -->
     <button id="floatingMenuBtn" class="floating-menu" aria-label="메뉴">
         <span aria-hidden="true">
@@ -132,38 +165,74 @@
         </span>
     </button>
 
-    <!-- (옵션) 메뉴 패널 -->
     <script>
+        // === 고양이 마우스 트레일러 ===
+        const cursor = document.getElementById("cursor");
+        const cat = document.getElementById("cat");
+
+        // 현재 마우스 위치
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+
+        // 현재 고양이 위치
+        let catX = mouseX;
+        let catY = mouseY;
+
+        // 고양이와 마우스 사이 오프셋
+        const offsetX = -15;
+        const offsetY = -15;
+
+        // 따라오는 속도 (0~1)
+        const followSpeed = 0.08;
+
+        window.addEventListener("mousemove", (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+
+            // 커서 점을 마우스로 이동
+            cursor.style.left = mouseX + "px";
+            cursor.style.top = mouseY + "px";
+        });
+
+        function animateCat() {
+            catX += (mouseX - catX) * followSpeed;
+            catY += (mouseY - catY) * followSpeed;
+
+            cat.style.left = (catX + offsetX) + "px";
+            cat.style.top = (catY + offsetY) + "px";
+
+            requestAnimationFrame(animateCat);
+        }
+
+        animateCat();
+
+        // === 플로팅 메뉴 + DNA 애니메이션 ===
         (function () {
             const btn = document.getElementById('floatingMenuBtn');
 
-            // ===== 설정 =====
             const MARGIN = 10;                 // 화면 가장자리 여백
             const CORNER_SNAP_RADIUS = 120;    // 이 거리 이내면 "코너 우선 스냅" 강제
             const CORNER_BIAS = 24;            // 코너 우선 편향(엣지보다 이만큼 불리해도 코너 선택)
             const USE_STORAGE = true;          // 위치 저장(페이지 이동 후 유지)
             const STORAGE_KEY = 'floating_menu_pos_v1';
 
-            // 상태
             let dragging = false;
             let pointerId = null;
-            let startX = 0, startY = 0;       // 포인터 시작점(클릭/드래그 판별용)
+            let startX = 0, startY = 0;
             let btnStartLeft = 0, btnStartTop = 0;
             let moved = false;
 
-            // 초기 위치 세팅 (기본: 오른쪽 아래)
             function defaultPosition() {
                 const vw = window.innerWidth;
                 const vh = window.innerHeight;
                 const rect = btn.getBoundingClientRect();
                 const left = vw - rect.width - MARGIN;
-                const top = vh - rect.height - MARGIN - 40; // 약간 위로
+                const top = vh - rect.height - MARGIN - 40;
                 setPos(clamp(left, MARGIN, vw - rect.width - MARGIN),
                     clamp(top, MARGIN, vh - rect.height - MARGIN), false);
                 snapToBest(true);
             }
 
-            // 저장 위치 로드
             function loadPosition() {
                 if (!USE_STORAGE) return false;
                 try {
@@ -186,7 +255,6 @@
                 localStorage.setItem(STORAGE_KEY, JSON.stringify({ left, top }));
             }
 
-            // 위치 적용
             function setPos(left, top, withTransition = false) {
                 btn.style.transition = withTransition ? 'left 180ms ease, top 180ms ease' : 'none';
                 btn.style.left = `${left}px`;
@@ -204,7 +272,6 @@
                 setPos(left, top, false);
             }
 
-            // ===== 스냅 로직: "코너 우선" =====
             function snapToBest(immediate = false) {
                 const vw = window.innerWidth;
                 const vh = window.innerHeight;
@@ -216,11 +283,9 @@
                 const w = rect.width;
                 const h = rect.height;
 
-                // 현재 버튼 "중심" 좌표
                 const cx = left + w / 2;
                 const cy = top + h / 2;
 
-                // 코너 좌표(버튼 좌상단 기준으로 붙일 목표)
                 const corners = [
                     { name: 'tl', x: MARGIN, y: MARGIN },
                     { name: 'tr', x: vw - w - MARGIN, y: MARGIN },
@@ -228,7 +293,6 @@
                     { name: 'br', x: vw - w - MARGIN, y: vh - h - MARGIN },
                 ];
 
-                // 엣지 목표(현재 y/x 유지한 채 가장자리로)
                 const edges = [
                     { name: 'left', x: MARGIN, y: clamp(top, MARGIN, vh - h - MARGIN) },
                     { name: 'right', x: vw - w - MARGIN, y: clamp(top, MARGIN, vh - h - MARGIN) },
@@ -241,7 +305,6 @@
                     return dx * dx + dy * dy;
                 };
 
-                // 코너 거리(버튼 중심 -> 코너의 버튼 중심 위치)
                 let bestCorner = null;
                 for (const c of corners) {
                     const ccx = c.x + w / 2, ccy = c.y + h / 2;
@@ -249,7 +312,6 @@
                     if (!bestCorner || d2 < bestCorner.d2) bestCorner = { ...c, d2 };
                 }
 
-                // 엣지 거리(버튼 중심 -> 엣지 목표의 버튼 중심)
                 let bestEdge = null;
                 for (const e of edges) {
                     const ecx = e.x + w / 2, ecy = e.y + h / 2;
@@ -260,9 +322,6 @@
                 const cornerDist = Math.sqrt(bestCorner.d2);
                 const edgeDist = Math.sqrt(bestEdge.d2);
 
-                // 코너 우선 규칙:
-                // 1) 코너가 CORNER_SNAP_RADIUS 이내면 무조건 코너
-                // 2) 아니면 "코너가 엣지보다 CORNER_BIAS 만큼 불리해도 코너" (우선권)
                 const chooseCorner =
                     (cornerDist <= CORNER_SNAP_RADIUS) ||
                     (cornerDist <= edgeDist + CORNER_BIAS);
@@ -271,12 +330,10 @@
 
                 const withTransition = !immediate;
                 setPos(target.x, target.y, withTransition);
-                // transition 끝난 뒤 저장
                 if (!immediate) setTimeout(savePosition, 220);
                 else savePosition();
             }
 
-            // ===== 포인터 이벤트로 드래그 구현 =====
             btn.addEventListener('pointerdown', (e) => {
                 dragging = true;
                 moved = false;
@@ -316,10 +373,8 @@
                 if (!dragging || e.pointerId !== pointerId) return;
                 dragging = false;
 
-                // 스냅 적용 (코너 우선)
                 snapToBest(false);
 
-                // 드래그 종료 직후의 click 방지 플래그 리셋
                 setTimeout(() => {
                     moved = false;
                     btn.dataset.wasDragged = 'false';
@@ -331,18 +386,15 @@
                 snapToBest(false);
             });
 
-            // 리사이즈 시 화면 안에 클램프 + 스냅 재적용
             window.addEventListener('resize', () => {
                 clampIntoViewport();
                 snapToBest(true);
             });
 
-            // 초기화
             if (!loadPosition()) defaultPosition();
             else snapToBest(true);
         })();
 
-        // ===== DNA Menu Animation =====
         document.addEventListener('DOMContentLoaded', () => {
             const btn = document.getElementById('floatingMenuBtn');
             const overlay = document.getElementById('dnaOverlay');
@@ -353,19 +405,16 @@
             const cellPanel = document.getElementById('cellPanel');
             const closeCell = document.getElementById('closeCell');
 
-            // 애니메이션 상태
             let isOpen = false;
             let animReq = null;
             let t0 = 0;
 
-            // 튜닝 파라미터
-            const DURATION = 300;            // DNA 퍼짐 시간(ms)
-            const RUNG_COUNT = 18;           // 사다리 개수
-            const START_OFFSET_Y1 = -6;      // “첫번째 줄” 출발점(버튼 중심 기준)
-            const START_OFFSET_Y3 = +6;      // “세번째 줄” 출발점(버튼 중심 기준)
-            const FADE_BG = true;            // 배경을 살짝 어둡게 할지(원하면 overlay에 배경 추가)
+            const DURATION = 300;
+            const RUNG_COUNT = 18;
+            const START_OFFSET_Y1 = -6;
+            const START_OFFSET_Y3 = +6;
+            const FADE_BG = true;
 
-            // 배경 페이드가 필요하면 overlay에 배경색을 줘도 됨
             if (FADE_BG) {
                 overlay.style.background = 'rgba(0,0,0,0.12)';
             }
@@ -380,13 +429,11 @@
                 const cx = r.left + r.width / 2;
                 const cy = r.top + r.height / 2;
 
-                // 햄버거 1번째 줄, 3번째 줄의 y 위치를 근사
                 const a = { x: cx, y: cy + START_OFFSET_Y1 };
                 const b = { x: cx, y: cy + START_OFFSET_Y3 };
                 return { a, b };
             }
 
-            // viewport(px) -> svg viewBox(0..1000)
             function vpToSvg(pt) {
                 const vw = window.innerWidth;
                 const vh = window.innerHeight;
@@ -397,39 +444,31 @@
             }
 
             function buildHelixPaths(progress) {
-                // progress: 0..1
                 const p = easeInOutCubic(progress);
-                const widthGrow = easeOutCubic(progress); // start thin, expand as animation progresses
+                const widthGrow = easeOutCubic(progress);
 
-                // 시작점(버튼 줄)과 종료점(화면 중앙)
                 const { a, b } = getBtnAnchorsInViewport();
                 const A0 = vpToSvg(a);
                 const B0 = vpToSvg(b);
 
-                const C = { x: 500, y: 500 }; // 중앙
-                // 진행에 따라 중앙으로 “끌려가며” 길이가 늘어나는 느낌
+                const C = { x: 500, y: 500 };
                 const x0 = A0.x;
                 const y0 = (A0.y + B0.y) / 2;
 
-                // 시작: 버튼 크기와 비슷하게, 끝: 중앙까지 크게 확장
-                // helix direction: button -> screen center
                 const dx = C.x - x0;
                 const dy = C.y - y0;
                 const distanceToCenter = Math.hypot(dx, dy) || 1;
 
-                // lock length to center so the DNA end lands in the middle
                 const length = distanceToCenter;
                 const turns = lerp(0.8, 3.6, p);
                 const baseAmp = lerp(4, 90, p);
                 const amp = Math.min(baseAmp, length * 0.35) * widthGrow;
                 const ang = Math.atan2(dy, dx);
 
-                // 로컬 좌표계에서 helix 만든 다음, 회전/이동
-                const N = 90; // 샘플 수
+                const N = 90;
                 let dA = "";
                 let dB = "";
 
-                // rung 생성
                 rungsG.innerHTML = "";
                 const rungCount = Math.round(lerp(3, RUNG_COUNT, p));
 
@@ -443,13 +482,11 @@
                 }
 
                 for (let i = 0; i < N; i++) {
-                    const u = i / (N - 1);           // 0..1
-                    const x = u * length;            // 진행축
+                    const u = i / (N - 1);
+                    const x = u * length;
                     const phase = u * Math.PI * 2 * turns;
 
-                    // taper to zero so the helix ends at center
                     const taper = Math.pow(1 - u, 1.2);
-                    // sine offset for each strand (180deg out of phase)
                     const yA = Math.sin(phase) * amp * taper;
                     const yB = Math.sin(phase + Math.PI) * amp * taper;
 
@@ -459,7 +496,6 @@
                     dA += (i === 0 ? `M ${pA.x.toFixed(2)} ${pA.y.toFixed(2)}` : ` L ${pA.x.toFixed(2)} ${pA.y.toFixed(2)}`);
                     dB += (i === 0 ? `M ${pB.x.toFixed(2)} ${pB.y.toFixed(2)}` : ` L ${pB.x.toFixed(2)} ${pB.y.toFixed(2)}`);
 
-                    // 사다리(일정 간격으로 선 추가)
                     if (i > 0 && i < N - 1) {
                         const rungEvery = Math.floor((N - 2) / rungCount);
                         if (rungEvery > 0 && (i % rungEvery === 0)) {
@@ -468,7 +504,6 @@
                             rung.setAttribute("y1", pA.y.toFixed(2));
                             rung.setAttribute("x2", pB.x.toFixed(2));
                             rung.setAttribute("y2", pB.y.toFixed(2));
-                            // “중앙 갈수록 강조” 느낌을 위해 진행에 따라 alpha를 조금 조절
                             rung.style.opacity = String(lerp(0.0, 0.95, u) * lerp(0.55, 1.0, p));
                             rungsG.appendChild(rung);
                         }
@@ -478,7 +513,6 @@
                 strandA.setAttribute("d", dA);
                 strandB.setAttribute("d", dB);
 
-                // stroke-width도 커지게
                 const swA = lerp(3.0, 5.2, p);
                 const swB = lerp(3.0, 4.6, p);
                 strandA.setAttribute("stroke-width", swA.toFixed(2));
@@ -491,11 +525,9 @@
                 if (isOpen) return;
                 isOpen = true;
 
-                // 기존 드래그/패널 UI가 있으면 여기서 닫기
                 overlay.classList.add('on');
                 overlay.setAttribute('aria-hidden', 'false');
 
-                // DNA 애니메이션 시작
                 cancelAnimationFrame(animReq);
                 t0 = performance.now();
 
@@ -509,7 +541,6 @@
                     if (raw < 1) {
                         animReq = requestAnimationFrame(tick);
                     } else {
-                        // 최종: 중앙 셀 패널 표시
                         cellPanel.classList.add('on');
                     }
                 };
@@ -522,7 +553,6 @@
 
                 cellPanel.classList.remove('on');
 
-                // 간단 닫기: DNA는 페이드아웃 후 종료 (원하면 역방향 수축도 가능)
                 strandA.style.transition = 'opacity 180ms ease';
                 strandB.style.transition = 'opacity 180ms ease';
                 rungsG.style.transition = 'opacity 180ms ease';
@@ -533,7 +563,6 @@
                 setTimeout(() => {
                     cancelAnimationFrame(animReq);
 
-                    // 초기화
                     strandA.style.transition = '';
                     strandB.style.transition = '';
                     rungsG.style.transition = '';
@@ -549,10 +578,7 @@
                 }, 200);
             }
 
-            // 버튼 클릭 → DNA 오픈 (기존 click 로직이 있다면 “토글”로 바꾸는게 안전)
-            btn.addEventListener('click', (e) => {
-                // 드래그 직후 click 방지 플래그를 이미 쓰고 있다면 그 로직 유지 필요
-                // 여기서는 단순 토글로 처리
+            btn.addEventListener('click', () => {
                 if (btn.dataset.wasDragged === 'true') {
                     btn.dataset.wasDragged = 'false';
                     return;
@@ -563,21 +589,16 @@
 
             closeCell.addEventListener('click', closeMenu);
 
-            // 오버레이 바깥 클릭으로 닫기(선호에 따라)
             overlay.addEventListener('pointerdown', (e) => {
-                // 셀 패널 내부 클릭은 닫지 않음
                 if (e.target.closest && e.target.closest('#cellPanel')) return;
-                // SVG 클릭은 닫기 허용
                 closeMenu();
             });
 
-            // 리사이즈 시 열려 있으면 재그리기
             window.addEventListener('resize', () => {
                 if (!isOpen) return;
                 buildHelixPaths(1);
             });
         });
-
     </script>
 
     <!-- DNA Overlay -->
