@@ -41,10 +41,51 @@
       user-select: none;
       pointer-events: none;
     }
+    .loader-wrap {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(11, 11, 11, 0.72);
+      z-index: 20;
+      backdrop-filter: blur(6px);
+    }
+    .loader {
+      width: 120px;
+      height: 22px;
+      border-radius: 40px;
+      color: #514b82;
+      border: 2px solid;
+      position: relative;
+      overflow: hidden;
+    }
+    .loader::before {
+      content: "";
+      position: absolute;
+      margin: 2px;
+      width: 14px;
+      top: 0;
+      bottom: 0;
+      left: -20px;
+      border-radius: inherit;
+      background: currentColor;
+      box-shadow: -10px 0 12px 3px currentColor;
+      clip-path: polygon(0 5%, 100% 0, 100% 100%, 0 95%, -30px 50%);
+      animation: l14 1s infinite linear;
+    }
+    @keyframes l14 {
+      100% {
+        left: calc(100% + 20px)
+      }
+    }
   </style>
 </head>
 
 <body>
+  <div class="loader-wrap" id="loader" aria-label="Loading">
+    <div class="loader"></div>
+  </div>
   <div class="scroll-area" id="scroller">
     <div class="spacer"></div>
   </div>
@@ -90,6 +131,8 @@
     let fillProgress = 0;   // 0..1
     let meltProgress = 0;   // 0..1
 
+    let loaderEl;
+    let loaderHidden = false;
     let scroller;
 
     // Melt data
@@ -101,6 +144,7 @@
       createCanvas(window.innerWidth, window.innerHeight);
       pixelDensity(Math.min(2, window.devicePixelRatio || 1));
       scroller = document.getElementById("scroller");
+      loaderEl = document.getElementById("loader");
 
       rebuildPaths();
       vehicle = new Vehicle(width * 0.5, height * 0.35);
@@ -120,6 +164,10 @@
 
     function draw() {
       background(BG);
+      if (!loaderHidden && loaderEl) {
+        loaderEl.style.display = 'none';
+        loaderHidden = true;
+      }
 
       // 스크롤 진행률
       currentP = lerp(currentP, targetP, SMOOTHING);
