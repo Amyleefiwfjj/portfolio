@@ -227,20 +227,22 @@
     .center-body {
       flex: 1;
       min-height: 0;
-      display: grid;
-      place-items: center;
-      padding: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 14px;
       position: relative;
       overflow: hidden;
     }
 
     .hero {
-      width: min(640px, 100%);
-      border-radius: 22px;
+      width: 100%;
+      max-width: 720px;
+      border-radius: 18px;
       border: 1px solid var(--line);
       background: rgba(255, 255, 255, .03);
-      padding: 18px;
-      box-shadow: 0 18px 50px rgba(0, 0, 0, .45);
+      padding: 14px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, .35);
       position: relative;
       overflow: hidden;
     }
@@ -634,6 +636,7 @@
           </div>
         </div>
         <div class="meta">
+          <button class="smallbtn" id="revealAllBtn" type="button">Show all</button>
           <button class="smallbtn" id="resetBtn" type="button">Reset</button>
         </div>
       </div>
@@ -886,6 +889,7 @@
     const stepPill = document.getElementById("stepPill");
     const timePill = document.getElementById("timePill");
     const resetBtn = document.getElementById("resetBtn");
+    const revealAllBtn = document.getElementById("revealAllBtn");
 
     const img_tsne_true_2d = document.getElementById("img_tsne_true_2d");
     const img_tsne_true_3d = document.getElementById("img_tsne_true_3d");
@@ -995,6 +999,10 @@
       }
     }
 
+    function revealAllSteps() {
+      RESULT_STEPS.forEach((_, idx) => showStep(idx + 1));
+    }
+
     function renderClusterList() {
       const wrap = document.getElementById("clusterList");
       const pill = document.getElementById("clusterSetPill");
@@ -1030,6 +1038,20 @@
       toggleBtn.addEventListener("click", () => {
         currentClusterSetKey = (currentClusterSetKey === "raw") ? "cleaned" : "raw";
         renderClusterList();
+      });
+    }
+
+    if (revealAllBtn) {
+      revealAllBtn.addEventListener("click", () => {
+        clearTimers();
+        revealAllSteps();
+        setStatus("ok", "All steps displayed.");
+        running = false;
+        runBtn.disabled = false;
+        runIcon.textContent = "▶";
+        runText.textContent = "Generate Embeddings";
+        setMode("Ready");
+        orbwrap.classList.remove("running");
       });
     }
 
