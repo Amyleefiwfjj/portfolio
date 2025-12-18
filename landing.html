@@ -25,10 +25,12 @@
       overflow-y: auto;
       overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
 
     .spacer {
-      height: 260vh;
+      height: 500vh;
+      min-height: 2200px;
     }
 
     .hint {
@@ -122,6 +124,8 @@
     const DRIP_PICK_Y = 26;     // 하단 윤곽에서 앵커를 잡는 두께(px)
     const DRIP_FIXED_RATIO = 0.38; // 상단 고정 길이 비율 (꾸덕함 핵심)
     const CAT_SIZE = 60;
+    const DRIP_FALL_SPACE = 360; // 드립이 밑으로 떨어질 공간 확보
+    const AUTO_SCROLL_RATIO = 0.9; // melt 시작 시 자동 스크롤할 비율(1에 가까울수록 더 아래)
 
     // (완성 판정은 이제 fill/melt가 스크롤 기반이라 필수는 아님)
     const COMPLETE_THRESHOLD = 0.995;
@@ -142,6 +146,9 @@
     let loaderHidden = false;
     let scroller;
     let catImg;
+    let autoScrollTriggered = false;
+    let scrollAnim = null;
+    let meltPeak = 0;
 
     // Melt data
     let drips = [];
@@ -165,6 +172,8 @@
 
       scroller.addEventListener("scroll", () => {
         targetP = calcScrollProgress(scroller);
+        if (targetP < MELT_START - 0.1) resetAutoScroll();
+        if (targetP < 0.05) meltPeak = 0; // 맨 위로 올리면 다시 초기화
       }, { passive: true });
 
       targetP = calcScrollProgress(scroller);
@@ -202,7 +211,9 @@
 
       // --- Melt progress (scroll-driven) ---
       const targetMelt = clamp01((currentP - MELT_START) / (1 - MELT_START));
-      meltProgress = lerp(meltProgress, targetMelt, MELT_SMOOTH);
+      meltPeak = Math.max(meltPeak, targetMelt); // 내려가도 멜팅은 역재생되지 않도록 최대값 유지
+      meltProgress = lerp(meltProgress, meltPeak, MELT_SMOOTH);
+      maybeAutoScroll(targetMelt);
 
       // melt 시작 시 드립 앵커 생성 (한 번만)
       if (meltProgress > 0.001 && drips.length === 0) {
@@ -260,6 +271,8 @@
       drips = [];
       nextSeeds = [];
       meltProgress = 0;
+      meltPeak = 0;
+      resetAutoScroll();
     }
 
     function sampleHeart(t0, t1, n) {
@@ -285,13 +298,19 @@
       const w = maxX - minX;
       const h = maxY - minY;
 
-      const pad = Math.min(width, height) * 0.16;
-      const sx = (width - pad * 2) / w;
-      const sy = (height - pad * 2) / h;
+      const reservedDrop = Math.min(DRIP_FALL_SPACE, height * 0.45); // melt 드롭이 내려갈 공간을 미리 비워둠
+      const workingH = Math.max(height - reservedDrop, height * 0.55);
+
+      const pad = Math.min(width, workingH) * 0.16;
+      const usableW = Math.max(1, width - pad * 2);
+      const usableH = Math.max(1, workingH - pad * 2);
+
+      const sx = usableW / w;
+      const sy = usableH / h;
       const s = Math.min(sx, sy);
 
       const cx = width * 0.5;
-      const cy = height * 0.52;
+      const cy = pad + usableH * 0.5;
 
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
@@ -318,6 +337,7 @@
     // ===== Melt: drip anchors from heart bottom =====
     function buildDripsFromBottom(poly, count) {
       count = Math.max(count, MIN_DRIPS);
+      const dropRoom = Math.max(140, Math.min(DRIP_FALL_SPACE, height * 0.5)); // 화면 크기에 맞춰 드립 길이 제한
       // 하트 폴리곤에서 가장 아래쪽(y 최대) 근처 점들을 후보로 사용
       let maxY = -Infinity;
       for (const p of poly) maxY = Math.max(maxY, p.y);
@@ -348,7 +368,7 @@
           x: p.x,
           y: p.y,
           w: random(18, 34),        // 기본 폭
-          maxLen: random(120, 320), // 최대 길이(꾸덕하게 길게)
+          maxLen: random(120, dropRoom), // 최대 길이(꾸덕하게 길게)
           phase: random(TWO_PI),
           speed: random(0.7, 1.15),
           delay: random(0.00, 0.28) // 드립 시작 타이밍(지연)
@@ -597,10 +617,51 @@
         : 1 - Math.pow(-2 * t + 2, 4) / 2;
     }
 
+    // ===== Auto scroll helper =====
+    function maybeAutoScroll(targetMelt) {
+      if (!scroller) return;
+      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+      if (maxScroll <= 0) return;
+
+      // melt가 시작되면 한 번만 아래로 살짝 스크롤해서 드립 일부가 보이게 함
+      if (!autoScrollTriggered && targetMelt > 0.02) {
+        autoScrollTriggered = true;
+        const target = maxScroll * AUTO_SCROLL_RATIO;
+        smoothScrollTo(scroller, target, 900);
+      }
+    }
+
+    function resetAutoScroll() {
+      autoScrollTriggered = false;
+      if (scrollAnim && typeof cancelAnimationFrame === "function") {
+        cancelAnimationFrame(scrollAnim);
+      }
+      scrollAnim = null;
+    }
+
+    function smoothScrollTo(el, target, duration = 800) {
+      const start = el.scrollTop;
+      const dist = target - start;
+      if (Math.abs(dist) < 2) return;
+
+      const startTime = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - startTime) / duration);
+        const eased = easeInOutQuart(t);
+        el.scrollTop = start + dist * eased;
+        if (t < 1) {
+          scrollAnim = requestAnimationFrame(step);
+        } else {
+          scrollAnim = null;
+        }
+      }
+      scrollAnim = requestAnimationFrame(step);
+    }
+
     function calcScrollProgress(el) {
       const max = el.scrollHeight - el.clientHeight;
       if (max <= 0) return 0;
-      return el.scrollTop / max;
+      return clamp01(el.scrollTop / max);
     }
     function clampInt(v, a, b) { return Math.max(a, Math.min(b, v)); }
     function clamp01(v) { return Math.max(0, Math.min(1, v)); }
