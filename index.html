@@ -1,36 +1,804 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ko">
 
 <head>
-  <meta charset="UTF-8" />
-  <title>Welcome to my portfolio</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Project Cards</title>
+  <style>
+    :root {
+      --bg: #0b0b0b;
+      --fg: rgba(255, 255, 255, .9);
+      --muted: rgba(255, 255, 255, .65);
+      --card: #121212;
+      --stroke: rgba(255, 255, 255, .14);
+      --shadow: 0 24px 80px rgba(0, 0, 0, .55);
+      --shadow2: 0 12px 40px rgba(0, 0, 0, .45);
+      --radius: 22px;
+      --footer-height: 60vh;
+    }
 
-  <script src="https://cdn.jsdelivr.net/npm/p5@1.6.0/lib/p5.min.js"></script>
+    * {
+      box-sizing: border-box;
+    }
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.0/gsap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.0/ScrollTrigger.min.js"></script>
+    .loader-wrap {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(11, 11, 11, 0.72);
+      z-index: 9999;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: opacity 0.4s ease;
+    }
 
-  <link rel="stylesheet" href="style.css" />
+    .loader {
+      width: 400px;
+      height: 200px;
+      border-radius: 500px 500px 0 0;
+      position: relative;
+      overflow: hidden;
+    }
 
-  <script src="mainPage.js" defer></script>
+    .loader::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 -100%;
+      background:
+        radial-gradient(farthest-side, #ffd738 80%, #0000) left 70% top 20%/75px 75px,
+        radial-gradient(farthest-side, #020308 92%, #0000) left 65% bottom 19%/60px 60px,
+        radial-gradient(farthest-side, #ecfefe 92%, #0000) left 70% bottom 20%/75px 75px,
+        linear-gradient(#9eddfe 50%, #020308 0);
+      background-repeat: no-repeat;
+      animation: l5 2s infinite;
+    }
+
+    @keyframes l5 {
+
+      0%,
+      20% {
+        transform: rotate(0);
+      }
+
+      40%,
+      60% {
+        transform: rotate(.5turn);
+      }
+
+      80%,
+      100% {
+        transform: rotate(1turn);
+      }
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      overflow: auto;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
+    .wrap {
+      min-height: calc(100vh - var(--footer-height));
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      align-items: center;
+      justify-items: center;
+      padding: 28px 18px;
+    }
+
+    .title {
+      text-align: center;
+      line-height: 1.15;
+      user-select: none;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 46px);
+      letter-spacing: .4px;
+    }
+
+    .title p {
+      margin: 10px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .stage {
+      position: relative;
+      width: min(760px, 96vw);
+      height: min(520px, 66vh);
+      display: grid;
+      place-items: center;
+      isolation: isolate;
+    }
+
+    /* Card stack container */
+    .deck {
+      position: relative;
+      width: min(520px, 92vw);
+      height: min(360px, 52vh);
+    }
+
+    /* Card base */
+    .card {
+      position: absolute;
+      inset: 0;
+      margin: auto;
+      width: 100%;
+      height: 100%;
+      border-radius: var(--radius);
+      border: 1px solid var(--stroke);
+      background:
+        radial-gradient(1200px 520px at 10% 10%, rgba(255, 255, 255, .10), transparent 45%),
+        radial-gradient(900px 520px at 90% 20%, rgba(255, 255, 255, .06), transparent 50%),
+        var(--card);
+      box-shadow: var(--shadow2);
+      overflow: hidden;
+
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-start;
+
+      padding: 18px 18px 16px;
+      cursor: pointer;
+      transform: translateZ(0);
+      transition:
+        transform .45s cubic-bezier(.2, .8, .2, 1),
+        filter .35s ease,
+        opacity .35s ease,
+        box-shadow .45s cubic-bezier(.2, .8, .2, 1);
+      will-change: transform;
+    }
+
+    .card .card-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: brightness(.9);
+      z-index: 0;
+    }
+
+    /* Big label on card */
+    .card .label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 2;
+    }
+
+    .card .label .name {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: .3px;
+    }
+
+    .card .label .hint {
+      font-size: 12px;
+      color: rgba(255, 255, 255, .72);
+    }
+
+    /* Decorative corner mark (playing-card vibe) */
+    .card::before {
+      content: attr(data-short);
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      font-weight: 800;
+      letter-spacing: .5px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, .9);
+      padding: 8px 10px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .07);
+      border: 1px solid rgba(255, 255, 255, .12);
+      z-index: 2;
+      user-select: none;
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, .08) 45%, transparent 55%);
+      transform: translateX(-30%) rotate(12deg);
+      opacity: .55;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Position states (left / center / right) */
+    .pos-left {
+      transform: translateX(-18%) rotate(-8deg) scale(.92);
+      opacity: .85;
+      filter: brightness(.85);
+      z-index: 1;
+    }
+
+    .pos-center {
+      transform: translateX(0) rotate(0deg) scale(1);
+      opacity: 1;
+      filter: brightness(1);
+      z-index: 3;
+      box-shadow: var(--shadow);
+    }
+
+    .pos-right {
+      transform: translateX(18%) rotate(8deg) scale(.92);
+      opacity: .85;
+      filter: brightness(.85);
+      z-index: 1;
+    }
+
+    .card:hover {
+      filter: brightness(1.05);
+    }
+
+    .pos-left:hover,
+    .pos-right:hover {
+      filter: brightness(.95);
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      user-select: none;
+    }
+
+    .btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, .16);
+      background: rgba(255, 255, 255, .06);
+      color: rgba(255, 255, 255, .9);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .35);
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, .10);
+      border-color: rgba(255, 255, 255, .22);
+    }
+
+    .btn:active {
+      transform: scale(.96);
+    }
+
+    .btn:focus {
+      outline: none;
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid rgba(255, 255, 255, .28);
+      outline-offset: 3px;
+    }
+
+    .footer {
+      font-size: 12px;
+      color: rgba(255, 255, 255, .55);
+      text-align: center;
+      line-height: 1.45;
+      user-select: none;
+    }
+
+    .footer kbd {
+      font: 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(255, 255, 255, .08);
+      border: 1px solid rgba(255, 255, 255, .14);
+      padding: 2px 6px;
+      border-radius: 6px;
+      margin: 0 3px;
+      color: rgba(255, 255, 255, .75);
+    }
+
+    /* Footer */
+    .footer-shell {
+      position: relative;
+      width: 100%;
+      height: var(--footer-height);
+      min-height: 360px;
+      background: #000;
+      overflow: hidden;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .footer-shell canvas {
+      display: block;
+    }
+
+    .contact-panel {
+      position: relative;
+      width: 100%;
+      isolation: isolate;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.88);
+      color: #f7f7f7;
+      min-height: 15vh;
+      padding: 48px clamp(5px, 5vw, 64px);
+      display: none;
+      align-content: center;
+      gap: 16px;
+      backdrop-filter: blur(6px);
+      box-sizing: border-box;
+    }
+
+    .contact-panel.show {
+      display: grid;
+    }
+
+    .contact-items {
+      display: grid;
+      gap: 10px;
+      font-size: clamp(15px, 2vw, 18px);
+      position: relative;
+      z-index: 1;
+    }
+
+    .contact-items a {
+      color: #f2f2f2;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      display: block;
+      padding: 14px 12px;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+      transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    }
+
+    .contact-items a:hover {
+      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+
+    @media (max-width:420px) {
+      .card .label .name {
+        font-size: 18px;
+      }
+
+      .deck {
+        height: min(320px, 50vh);
+      }
+    }
+  </style>
 </head>
 
 <body>
-  <div id="loading-screen" class="loading-screen" style="display: block;">
-    <div class="loader">
-      <div class="item-1"><span></span></div>
-      <div class="item-2"><span></span></div>
-      <div class="item-3"><span></span></div>
-      <div class="item-4"><span></span></div>
-      <div class="item-5"><span></span></div>
-      <div class="item-6"><span></span></div>
-      <div class="item-7"><span></span></div>
-      <div class="item-8"><span></span></div>
+  <div class="loader-wrap" id="loader" aria-label="Loading">
+    <div class="loader"></div>
+  </div>
+  <div class="wrap">
+    <div class="title" aria-live="polite">
+      <h1 id="pageTitle">BIO</h1>
+      <p>카드를 클릭하면 해당 페이지로 이동합니다.</p>
     </div>
 
-    <div id="mainPageContainer" style="display:none;">
-
+    <div class="stage">
+      <div class="deck" id="deck" aria-label="Project navigation cards">
+        <!-- Cards injected by JS -->
+      </div>
     </div>
+
+    <div class="controls">
+      <button class="btn" id="prevBtn" type="button" aria-label="Previous">
+        &#x2039;
+      </button>
+      <button class="btn" id="nextBtn" type="button" aria-label="Next">
+        &#x203A;
+      </button>
+    </div>
+
+    <div class="footer">
+      키보드도 지원: <kbd>←</kbd> <kbd>→</kbd> / 중앙 카드 클릭
+    </div>
+  </div>
+
+  <div class="footer-shell" id="footer"></div>
+  <section class="contact-panel" aria-label="Contact panel">
+    <div class="contact-items">
+      <a href="mailto:youremail@example.com">[email] youremail@example.com</a>
+      <a href="https://github.com/Amyleefiwfjj" target="_blank" rel="noopener">[github] Amyleefiwfjj</a>
+      <a href="https://blog.naver.com/da04eun" target="_blank" rel="noopener">[blog] da04eun</a>
+      <a href="tel:+821012345678">[phone] 010-1234-5678</a>
+    </div>
+  </section>
+
+  <script>
+    const loaderEl = document.getElementById("loader");
+
+    function hideLoader() {
+      if (!loaderEl) return;
+      loaderEl.style.opacity = "0";
+      loaderEl.style.pointerEvents = "none";
+      setTimeout(() => { loaderEl.style.display = "none"; }, 400);
+    }
+
+    setTimeout(hideLoader, 1200);
+
+    window.addEventListener("load", () => {
+      hideLoader();
+    });
+  </script>
+  <script>
+    const projects = [
+      { name: "ART_TECH", short: "AT", href: "./art_tech.html" },
+      { name: "BIO", short: "BIO", href: "./bio.html" },
+      { name: "BIOINFORM", short: "BI", href: "./bioinform.html" },
+    ];
+
+    const imageMap = {
+      "BIO": "./asset/1.jpg",
+      "ART_TECH": "./asset/2.jpg",
+      "BIOINFORM": "./asset/3.jpg",
+    };
+
+    const deck = document.getElementById("deck");
+    const pageTitle = document.getElementById("pageTitle");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    let current = 1; // 시작: BIO(가운데)
+
+    function mod(n, m) { return ((n % m) + m) % m; }
+
+    function render() {
+      deck.innerHTML = "";
+
+      const n = projects.length;
+
+      // left, center, right indices based on current
+      const leftIdx = mod(current - 1, n);
+      const centerIdx = mod(current, n);
+      const rightIdx = mod(current + 1, n);
+
+      const order = [
+        { idx: leftIdx, pos: "pos-left" },
+        { idx: centerIdx, pos: "pos-center" },
+        { idx: rightIdx, pos: "pos-right" }
+      ];
+
+      pageTitle.textContent = projects[centerIdx].name;
+
+      order.forEach(({ idx, pos }) => {
+        const p = projects[idx];
+
+        const card = document.createElement("div");
+        card.className = `card ${pos}`;
+        card.setAttribute("role", "button");
+        card.setAttribute("tabindex", pos === "pos-center" ? "0" : "-1");
+        card.setAttribute("aria-label", `${p.name} 페이지로 이동`);
+        card.dataset.href = p.href;
+        card.dataset.short = p.short;
+
+        card.innerHTML = `
+          <img class="card-img" src="${imageMap[p.name] || ''}" alt="">
+          <div class="label">
+            <div class="name">${p.name}</div>
+            <div class="hint">Click to open</div>
+          </div>
+        `;
+
+        card.addEventListener("click", () => {
+          window.location.href = p.href;
+        });
+
+        card.addEventListener("keydown", (e) => {
+          if (pos !== "pos-center") return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            window.location.href = p.href;
+          }
+        });
+
+        deck.appendChild(card);
+      });
+    }
+
+    function prev() {
+      current = mod(current - 1, projects.length);
+      render();
+    }
+    function next() {
+      current = mod(current + 1, projects.length);
+      render();
+    }
+
+    prevBtn.addEventListener("click", prev);
+    nextBtn.addEventListener("click", next);
+
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    });
+
+    render();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+  <script>
+    let chFooterFont;
+    let chFooterPoints = [];
+    let chFooterBounds;
+    let chFooterLastTx = 0, chFooterLastTy = 0;
+    let chFooterContactOpen = false;
+    let chFooterContactPanel = null;
+    let chFooterBackdropInstance = null;
+
+    const CH_FOOTER_WORD = "contact me";
+    const CH_FOOTER_FONT_SIZE = 140;
+    const CH_FOOTER_SAMPLE = 0.28;
+    const CH_FOOTER_DOT = 4;
+    const CH_FOOTER_MAX_AMP = 20;
+    const CH_FOOTER_BG_ALPHA = 210;
+
+    const chFooterSchemes = [
+      { colors: ['#7bdff2', '#b2f7ef', '#eff7f6', '#f7d6e0', '#f2b5d4'] },
+      { colors: ['#ff9a9e', '#fad0c4', '#fbc2eb', '#a6c1ee'] },
+      { colors: ['#0affef', '#5efc8d', '#e6ff64', '#ff9d76'] },
+      { colors: ['#ff6b6b', '#ffd166', '#ffe66d', '#06d6a0'] }
+    ];
+    const chFooterBgColors = ['#05070d', '#06090f', '#0b0f16', '#0f1220'];
+
+    let chFooterJitter = 1.0;
+    let chFooterJitterTarget = 1.0;
+    let chFooterHeroH = 0;
+
+    const chFooterWordSketch = (p) => {
+      p.preload = () => { chFooterFont = p.loadFont("./asset/B612Mono-Bold.ttf"); };
+
+      p.setup = () => {
+        chFooterContactPanel = document.querySelector('.contact-panel');
+        chFooterHeroH = Math.max(p.windowHeight * 0.6, 360);
+        document.documentElement.style.setProperty('--footer-height', `${chFooterHeroH}px`);
+        const c = p.createCanvas(p.windowWidth, chFooterHeroH);
+        const footerEl = document.getElementById("footer");
+        c.parent(footerEl);
+        p.colorMode(p.RGB);
+        initTextGeometry();
+        p.noStroke();
+      };
+
+      p.draw = () => {
+        p.background(0);
+
+        const tx = (p.width - chFooterBounds.w) / 2 - chFooterBounds.x;
+        const ty = (p.height + chFooterBounds.h) / 2 - chFooterBounds.y;
+        chFooterLastTx = tx;
+        chFooterLastTy = ty;
+
+        const hover =
+          p.mouseX >= tx + chFooterBounds.x && p.mouseX <= tx + chFooterBounds.x + chFooterBounds.w &&
+          p.mouseY >= ty + chFooterBounds.y && p.mouseY <= ty + chFooterBounds.y + chFooterBounds.h;
+
+        chFooterJitterTarget = hover ? 0.0 : 1.0;
+        chFooterJitter = p.lerp(chFooterJitter, chFooterJitterTarget, 0.12);
+        const amp = CH_FOOTER_MAX_AMP * chFooterJitter;
+        const t = p.frameCount * 0.02;
+
+        p.fill(255, 210);
+        for (let i = 0; i < chFooterPoints.length; i++) {
+          const pt = chFooterPoints[i];
+          const nx = p.noise(i * 0.07, t) * 2 - 1;
+          const ny = p.noise(i * 0.07 + 1000, t) * 2 - 1;
+          const x = tx + pt.x + nx * amp;
+          const y = ty + pt.y + ny * amp;
+          p.ellipse(x, y, CH_FOOTER_DOT, CH_FOOTER_DOT);
+        }
+      };
+
+      p.windowResized = () => {
+        chFooterHeroH = Math.max(p.windowHeight * 0.6, 360);
+        document.documentElement.style.setProperty('--footer-height', `${chFooterHeroH}px`);
+        p.resizeCanvas(p.windowWidth, chFooterHeroH);
+        initTextGeometry();
+      };
+
+      p.mousePressed = () => {
+        const within =
+          p.mouseX >= chFooterLastTx + chFooterBounds.x && p.mouseX <= chFooterLastTx + chFooterBounds.x + chFooterBounds.w &&
+          p.mouseY >= chFooterLastTy + chFooterBounds.y && p.mouseY <= chFooterLastTy + chFooterBounds.y + chFooterBounds.h;
+        if (!within || !chFooterContactPanel) return;
+        chFooterContactOpen = !chFooterContactOpen;
+        chFooterContactPanel.classList.toggle('show', chFooterContactOpen);
+        if (chFooterContactOpen) {
+          ensurePanelBackdrop();
+          chFooterContactPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+
+      function initTextGeometry() {
+        chFooterPoints = chFooterFont.textToPoints(CH_FOOTER_WORD, 0, 0, CH_FOOTER_FONT_SIZE, {
+          sampleFactor: CH_FOOTER_SAMPLE,
+          simplifyThreshold: 0
+        });
+        chFooterBounds = chFooterFont.textBounds(CH_FOOTER_WORD, 0, 0, CH_FOOTER_FONT_SIZE);
+      }
+    };
+
+    const chFooterBackdropSketch = (p) => {
+      let colors = [];
+      let colorbg;
+      let grid;
+      const cellSize = 20;
+      let cols, rows;
+      const maxAge = 80;
+      let panelEl;
+
+      p.setup = () => {
+        panelEl = document.querySelector('.contact-panel');
+        const { width, height } = getPanelSize();
+        const canvas = p.createCanvas(width, height);
+        canvas.parent(panelEl);
+        canvas.style('position', 'absolute');
+        canvas.style('inset', '0');
+        canvas.style('z-index', '0');
+        canvas.style('pointer-events', 'none');
+        p.colorMode(p.RGB);
+        initGrid();
+      };
+
+      p.draw = () => {
+        if (!panelEl || panelEl.offsetParent === null) {
+          p.clear();
+          return;
+        }
+
+        const { width, height } = getPanelSize();
+        if (width !== p.width || height !== p.height) {
+          p.resizeCanvas(width, height);
+          initGrid();
+        }
+
+        const bg = p.color(colorbg);
+        bg.setAlpha(CH_FOOTER_BG_ALPHA);
+        p.background(bg);
+
+        for (let i = 0; i < cols; i++) {
+          for (let j = 0; j < rows; j++) {
+            const cell = grid[i][j];
+            if (!cell.alive) continue;
+            cell.age++;
+            const x = i * cellSize + cellSize / 2;
+            const y = j * cellSize + cellSize / 2;
+            const size = p.map(cell.age, 0, maxAge, 1, cellSize);
+
+            p.fill(getFlowingColor(i, j, cell.age));
+            p.noStroke();
+            p.push();
+            p.translate(x, y);
+            drawShape(cell.shape, size);
+            p.pop();
+            if (cell.age > maxAge) cell.alive = false;
+          }
+        }
+        updateGrowth();
+      };
+
+      p.windowResized = () => {
+        if (!panelEl) return;
+        const { width, height } = getPanelSize();
+        p.resizeCanvas(width, height);
+        initGrid();
+      };
+
+      function getPanelSize() {
+        if (!panelEl) return { width: window.innerWidth, height: 200 };
+        const rect = panelEl.getBoundingClientRect();
+        return { width: Math.max(1, rect.width), height: Math.max(1, rect.height) };
+      }
+
+      function initGrid() {
+        const scheme = p.random(chFooterSchemes);
+        colors = scheme.colors;
+        colorbg = p.random(chFooterBgColors);
+        cols = Math.max(1, Math.floor(p.width / cellSize));
+        rows = Math.max(1, Math.floor(p.height / cellSize));
+        grid = Array.from({ length: cols }, () =>
+          Array.from({ length: rows }, () => ({
+            alive: p.random() < 0.02,
+            age: 0,
+            shape: p.random(["circle", "triangle", "rect"]),
+          }))
+        );
+      }
+
+      function drawShape(type, size) {
+        switch (type) {
+          case "circle":
+            p.ellipse(0, 0, size, size); break;
+          case "triangle": {
+            const h = size * p.sqrt(3) / 2;
+            p.triangle(0, -h / 2, -size / 2, h / 2, size / 2, h / 2);
+            break;
+          }
+          case "rect":
+            p.rectMode(p.CENTER);
+            p.rect(0, 0, size, size);
+            break;
+        }
+      }
+
+      function updateGrowth() {
+        let next = [];
+
+        for (let i = 0; i < cols; i++) {
+          next[i] = [];
+          for (let j = 0; j < rows; j++) {
+            const cell = grid[i][j];
+            const neighbors = countAliveNeighbors(i, j);
+
+            const newCell = { ...cell };
+            if (!cell.alive && neighbors >= 2 && p.random() < 0.05) {
+              newCell.alive = true;
+              newCell.age = 0;
+            }
+
+            next[i][j] = newCell;
+          }
+        }
+
+        grid = next;
+      }
+
+      function countAliveNeighbors(x, y) {
+        let count = 0;
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            if (dx === 0 && dy === 0) continue;
+            const nx = (x + dx + cols) % cols;
+            const ny = (y + dy + rows) % rows;
+            if (grid[nx][ny].alive) count++;
+          }
+        }
+        return count;
+      }
+
+      function getFlowingColor(i, j, age) {
+        const px = i / cols;
+        const py = j / rows;
+        const t = p.frameCount * 0.01;
+        const n = p.sin(px * 2 + py * 2 + t) * 0.5 + 0.5;
+        const ageFactor = p.constrain(age / maxAge, 0, 1);
+        const blend = (ageFactor + n) / 2;
+        const indexA = Math.floor(blend * (colors.length - 1));
+        const indexB = (indexA + 1) % colors.length;
+        const mix = blend * (colors.length - 1) % 1;
+        const c = p.lerpColor(p.color(colors[indexA]), p.color(colors[indexB]), mix);
+        c.setAlpha(160);
+        return c;
+      }
+    };
+
+    function ensurePanelBackdrop() {
+      if (!chFooterBackdropInstance) {
+        chFooterBackdropInstance = new p5(chFooterBackdropSketch);
+      }
+    }
+
+    window.addEventListener('load', () => {
+      new p5(chFooterWordSketch);
+    });
+  </script>
 </body>
 
 </html>
